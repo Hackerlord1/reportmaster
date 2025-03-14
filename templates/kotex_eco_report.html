@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Huggies & Kotex ECO Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .report-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .report {
+            width: 48%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Huggies & Kotex ECO Report</h1>
+        <p class="text-center">Report Date: {{ today_date }}</p>
+        <div class="report-container">
+            <div class="report">
+                <h2>Huggies ECO Report</h2>
+                {% if eco_reports['Huggies'] is not none %}
+                    {{ eco_reports['Huggies'][0].to_html(classes="table table-striped table-bordered", index=False) | safe }}
+                    <a href="{{ url_for('download_file', filename=eco_reports['Huggies'][1].split('/')[-1]) }}" class="btn btn-primary mt-3">Download Huggies Report</a>
+                {% else %}
+                    <p>No data available for Huggies.</p>
+                {% endif %}
+            </div>
+            <div class="report">
+                <h2>Kotex ECO Report</h2>
+                {% if eco_reports['Kotex'] is not none %}
+                    {{ eco_reports['Kotex'][0].to_html(classes="table table-striped table-bordered", index=False) | safe }}
+                    <a href="{{ url_for('download_file', filename=eco_reports['Kotex'][1].split('/')[-1]) }}" class="btn btn-primary mt-3">Download Kotex Report</a>
+                {% else %}
+                    <p>No data available for Kotex.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

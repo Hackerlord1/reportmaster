@@ -1,0 +1,246 @@
+@app.route('/', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        # Initialize file_path to None to ensure it exists in the finally block
+        file_path = None
+
+        # Debugging: Print form data
+        print(f"Form data: {request.form}")  # Debugging statement
+        print(f"Files: {request.files}")  # Debugging statement
+
+        if 'file' not in request.files:
+            return '''
+            <div class="alert alert-danger" role="alert">
+                No file uploaded.
+            </div>
+            '''
+
+        file = request.files['file']
+        company = request.form.get('company')  # Get selected company from the form
+
+        # Debugging: Print file and company
+        print(f"Uploaded file: {file.filename}")  # Debugging statement
+        print(f"Selected company: {company}")  # Debugging statement
+
+        if file.filename == '':
+            return '''
+            <div class="alert alert-danger" role="alert">
+                No file selected.
+            </div>
+            '''
+
+        if not company:
+            return '''
+            <div class="alert alert-danger" role="alert">
+                No company selected.
+            </div>
+            '''
+
+        try:
+            # Define file_path here to ensure it's available in the finally block
+            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+            print(f"File path: {file_path}")  # Debugging statement
+
+            # Save the uploaded file
+            file.save(file_path)
+            print(f"File saved to: {file_path}")  # Debugging statement
+
+            # Process the uploaded file
+            result = process_excel(file_path, company)
+            if result is None:
+                return '''
+                <div class="alert alert-danger" role="alert">
+                    Error processing the file. Please ensure the file:
+                    <ul>
+                        <li>Is an Excel file (.xlsx).</li>
+                        <li>Contains the required columns: FSR, Customer, Amount, Brand, SKU_Code.</li>
+                        <li>Is not empty.</li>
+                    </ul>
+                </div>
+                '''
+
+            # Unpack all 4 values returned by process_excel
+            sales_report, sales_report_path, sub_company_reports, brand_eco_reports = result
+
+            # Get today's date
+            today_date = datetime.today().strftime('%Y-%m-%d')
+
+            # Render the appropriate template based on the company
+            if company == 'Canon':
+                return render_template(
+                    "canon_report.html",
+                    sales_report=sales_report,  # Pass the DataFrame, not a string
+                    today_date=today_date
+                )
+            elif company == 'Jumra':
+                return render_template(
+                    "jumra_report.html",
+                    sales_report=sales_report,  # Pass the DataFrame, not a string
+                    sub_company_reports=sub_company_reports,
+                    brand_eco_reports=brand_eco_reports,
+                    today_date=today_date
+                )
+        except Exception as e:
+            print(f"Error: {e}")  # Debugging statement
+            return f'''
+            <div class="alert alert-danger" role="alert">
+                Error: {e}
+            </div>
+            '''
+        finally:
+            # Ensure file_path is defined before attempting to delete the file
+            if file_path and os.path.exists(file_path):
+                print(f"Deleting file: {file_path}")  # Debugging statement
+                os.remove(file_path)
+
+    return '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Upload Sales Data</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            /* Custom Styles */
+            body {
+                background-color: #f8f9fa;
+                font-family: 'Poppins', sans-serif;
+                color: #333;
+            }
+
+            .header {
+                background: linear-gradient(135deg, #6a11cb, #2575fc);
+                color: #fff;
+                padding: 40px 20px;
+                border-radius: 10px;
+                margin-bottom: 30px;
+                text-align: center;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
+
+            .header h1 {
+                font-size: 2.5rem;
+                font-weight: 700;
+                margin-bottom: 10px;
+            }
+
+            .header p {
+                font-size: 1.1rem;
+                margin-bottom: 0;
+            }
+
+            .upload-form {
+                background-color: #fff;
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                padding: 30px;
+                max-width: 600px;
+                margin: 0 auto;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+            }
+
+            .upload-form:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+            }
+
+            .form-label {
+                font-weight: 500;
+                color: #2c3e50;
+            }
+
+            .form-control {
+                border-radius: 5px;
+                border: 1px solid #dee2e6;
+                padding: 10px;
+                transition: border-color 0.3s ease;
+            }
+
+            .form-control:focus {
+                border-color: #6a11cb;
+                box-shadow: 0 0 0 3px rgba(106, 17, 203, 0.1);
+            }
+
+            .btn-primary {
+                background-color: #6a11cb;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: 500;
+                transition: background-color 0.3s ease;
+            }
+
+            .btn-primary:hover {
+                background-color: #2575fc;
+            }
+
+            .alert {
+                border-radius: 5px;
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+
+            .alert-danger {
+                background-color: #f8d7da;
+                border-color: #f5c6cb;
+                color: #721c24;
+            }
+
+            .footer {
+                text-align: center;
+                margin-top: 40px;
+                padding: 20px;
+                background-color: #f1f1f1;
+                border-radius: 10px;
+                font-size: 0.9rem;
+                color: #666;
+            }
+
+            .footer a {
+                color: #6a11cb;
+                text-decoration: none;
+                font-weight: 500;
+            }
+
+            .footer a:hover {
+                text-decoration: underline;
+            }
+        </style>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    </head>
+    <body>
+        <div class="container mt-5">
+            <!-- Header Section -->
+            <div class="header">
+                <h1>Upload Sales Data</h1>
+                <p>Generate detailed sales reports for Canon or Jumra.</p>
+            </div>
+
+            <!-- Upload Form -->
+            <div class="upload-form">
+                <form method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="company" class="form-label">Select Company</label>
+                        <select class="form-control" id="company" name="company" required>
+                            <option value="">Choose a company</option>
+                            <option value="Canon">Canon</option>
+                            <option value="Jumra">Jumra</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Upload Excel File</label>
+                        <input type="file" class="form-control" name="file" accept=".xlsx" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Upload and Generate Reports</button>
+                </form>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>Generated by <a href="#">SHARTUKA HOLDINGS LIMITED</a>. &copy; 2025 All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    '''

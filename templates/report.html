@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Reports</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #80a0c1;
+            padding: 20px;
+        }
+        .report-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        
+        }
+        .report-container h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .table thead th {
+            background-color: #007bff; /* Blue header */
+            color: white; /* White text */
+            text-align: left;
+        }
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: rgba(0, 123, 255, 0.05); /* Light blue striped rows */
+            width: fit-content;
+        }
+        .btn-download {
+            margin-top: 10px;
+        }
+
+        /* Custom styling for MTD Sales Report */
+        .mtd-sales-table thead th {
+            background-color: #28a745; /* Green header */
+            color: white; /* White text */
+            
+        }
+        .mtd-sales-table tbody tr:nth-of-type(odd) {
+            background-color: rgba(40, 167, 69, 0.05); /* Light green striped rows */
+        }
+        .mtd-sales-table tbody tr:hover {
+            background-color: rgba(40, 167, 69, 0.1); /* Hover effect */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">Sales Reports - {{ today_date }}</h1>
+
+        <!-- MTD Sales Report -->
+        <div class="report-container">
+            <h2>MTD Sales Report</h2>
+            <div class="table-responsive">
+                {{ tables[0] | replace('<table', '<table class="table table-striped table-bordered mtd-sales-table"') | safe }}
+            </div>
+            <a href="{{ url_for('download_file', filename=filename) }}" class="btn btn-primary btn-download">Download MTD Sales Report</a>
+        </div>
+
+        <!-- AER POWER POCKET Report -->
+        {% if aer_tables %}
+        <div class="report-container">
+            <h2>AER POWER POCKET ECO Report</h2>
+            <div class="table-responsive">
+                {{ aer_tables[0] | safe }}
+            </div>
+            <a href="{{ url_for('download_file', filename=aer_filename) }}" class="btn btn-primary btn-download">Download AER Report</a>
+        </div>
+        {% endif %}
+
+        <!-- MEGA G. HAIR & SCALP FOOD 100ML Report -->
+        {% if mega_100_tables %}
+        <div class="report-container">
+            <h2>MEGA G. HAIR & SCALP FOOD 100ML ECO Report</h2>
+            <div class="table-responsive">
+                {{ mega_100_tables[0] | safe }}
+            </div>
+            <a href="{{ url_for('download_file', filename=mega_100_filename) }}" class="btn btn-primary btn-download">Download MEGA 100ML Report</a>
+        </div>
+        {% endif %}
+
+        <!-- MEGA G. HAIR & SCALP FOOD 250ML Report -->
+        {% if mega_250_tables %}
+        <div class="report-container">
+            <h2>MEGA G. HAIR & SCALP FOOD 250ML ECO Report</h2>
+            <div class="table-responsive">
+                {{ mega_250_tables[0] | safe }}
+            </div>
+            <a href="{{ url_for('download_file', filename=mega_250_filename) }}" class="btn btn-primary btn-download">Download MEGA 250ML Report</a>
+        </div>
+        {% endif %}
+
+        <!-- GOODNIGHT INSECT KILLER Report -->
+        {% if goodnight_tables %}
+        <div class="report-container">
+            <h2>GOODNIGHT INSECT KILLER ECO Report</h2>
+            <div class="table-responsive">
+                {{ goodnight_tables[0] | safe }}
+            </div>
+            <a href="{{ url_for('download_file', filename=goodnight_filename) }}" class="btn btn-primary btn-download">Download Goodnight Report</a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
