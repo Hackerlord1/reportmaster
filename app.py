@@ -1,16 +1,21 @@
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, session
 import pandas as pd
 import os
 from datetime import datetime
 import io
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.secret_key = 'your-secret-key-here'  # Replace with a secure key
 
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Company configurations (unchanged, keeping SKUs in brand_targets for SKU processing)
 COMPANIES = {
     'Canon': {
         'fsr_sales_targets': {
@@ -78,6 +83,7 @@ COMPANIES = {
             'BEATRICE INGABIRE': 2784000,
             'FANCY CHEPNGENO ': 928000,
             'Irene Muyoka': 812000,
+            'ISAAC KIPKOSGEI':0,
             'Walkin  Sales': 1044000,
         },
         'unit_targets': {
@@ -85,6 +91,7 @@ COMPANIES = {
             'BEATRICE INGABIRE': 'Retail/Marble',
             'FANCY CHEPNGENO ': 'Retail',
             'Irene Muyoka': 'Retail',
+            'ISAAC KIPKOSGEI':'Retail',
             'Walkin  Sales': 'Retail',
         },
         'aer_fsr_targets': {
@@ -92,6 +99,7 @@ COMPANIES = {
             'BEATRICE INGABIRE': 150,
             'FANCY CHEPNGENO ': 250,
             'Irene Muyoka': 250,
+            'ISAAC KIPKOSGEI':0,
             'Walkin  Sales': 250,
         },
         'brand_targets': {
@@ -100,6 +108,7 @@ COMPANIES = {
                 'BEATRICE INGABIRE': 12,
                 'FANCY CHEPNGENO ': 12,
                 'Irene Muyoka': 12,
+                'ISAAC KIPKOSGEI':0,
                 'Walkin  Sales': 12,
             },
             'AER POWER POCKET': {
@@ -107,6 +116,7 @@ COMPANIES = {
                 'BEATRICE INGABIRE': 15,
                 'FANCY CHEPNGENO ': 15,
                 'Irene Muyoka': 15,
+                'ISAAC KIPKOSGEI':0,
                 'Walkin  Sales': 15,
             },
             'FGWHHMG0N01': {
@@ -114,6 +124,7 @@ COMPANIES = {
                 'BEATRICE INGABIRE': 50,
                 'FANCY CHEPNGENO ': 25,
                 'Irene Muyoka': 25,
+                'ISAAC KIPKOSGEI':0,
                 'Walkin  Sales': 20,
             },
             'FGWHHMG0N02': {
@@ -121,6 +132,7 @@ COMPANIES = {
                 'BEATRICE INGABIRE': 50,
                 'FANCY CHEPNGENO ': 25,
                 'Irene Muyoka': 25,
+                'ISAAC KIPKOSGEI':0,
                 'Walkin  Sales': 20,
             },
             'FGWHTRMG0003': {
@@ -128,6 +140,7 @@ COMPANIES = {
                 'BEATRICE INGABIRE': 50,
                 'FANCY CHEPNGENO ': 25,
                 'Irene Muyoka': 25,
+                'ISAAC KIPKOSGEI':0,
                 'Walkin  Sales': 20,
             },
         },
@@ -143,7 +156,7 @@ COMPANIES = {
             'Jedidah Kemunto': 'Retail',
             'Ochieng Charles': 'Retail',
             'Lenah Cheloti': 'Retail',
-            'Moses  Ngugi': 'Retail',
+            'Moses  Ngugi': 'Marble/Retail',
         },
         'aer_fsr_targets': {
             'Jedidah Kemunto': 500,
@@ -265,10 +278,10 @@ COMPANIES = {
                     'Thomas Kiamaiyo': 785806,
                 },
                 'eco_targets': {
-                'Jedidah Danyoko': 250,
-                'Joy Alumasa': 250,
-                'Miriam Rono': 250,
-                'Thomas Kiamaiyo': 250,
+                    'Jedidah Danyoko': 250,
+                    'Joy Alumasa': 250,
+                    'Miriam Rono': 250,
+                    'Thomas Kiamaiyo': 250,
                 },
                 'brand_targets': {
                     'Huggies': {
@@ -376,9 +389,13 @@ def process_canon(file_path, company):
         sales_report['ECO Target'] = sales_report['FSR'].map(company_config['aer_fsr_targets']).fillna(0)
 
         sales_report['Sales Balance'] = sales_report['Sales Actual'] - sales_report['Sales Target']
-        sales_report['% Sales'] = (sales_report['Sales Actual'] / sales_report['Sales Target']) * 100
+        sales_report['% Sales'] = sales_report.apply(
+            lambda row: (row['Sales Actual'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+        )
         sales_report['ECO Balance'] = sales_report['ECO Actual'] - sales_report['ECO Target']
-        sales_report['% ECO'] = (sales_report['ECO Actual'] / sales_report['ECO Target']) * 100
+        sales_report['% ECO'] = sales_report.apply(
+            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+        )
 
         sales_report = sales_report[[
             'FSR', 'Unit', 'Sales Target', 'Sales Actual', 'Sales Balance', '% Sales',
@@ -394,12 +411,11 @@ def process_canon(file_path, company):
         for col in percentage_columns:
             sales_report[col] = sales_report[col].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
 
-        # Filter out SKUs from brand_reports
         brand_reports = {}
         brand_targets = company_config.get('brand_targets', {})
         sku_list = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
         for brand in brand_targets.keys():
-            if brand not in sku_list:  # Exclude SKUs from Brand ECO Reports
+            if brand not in sku_list:
                 brand_df = df[df['Brand'] == brand]
                 eco_report = pd.DataFrame({'FSR': list(brand_targets[brand].keys())})
                 if not brand_df.empty:
@@ -410,14 +426,15 @@ def process_canon(file_path, company):
                 eco_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
                 eco_report['ECO Target'] = eco_report['FSR'].map(brand_targets.get(brand, {})).fillna(0)
                 eco_report['ECO Balance'] = eco_report['ECO Actual'] - eco_report['ECO Target']
-                eco_report['% ECO'] = (eco_report['ECO Actual'] / eco_report['ECO Target']) * 100
+                eco_report['% ECO'] = eco_report.apply(
+                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                )
                 eco_report = add_totals_row(eco_report)
                 for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
                     eco_report[col] = eco_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
                 eco_report['% ECO'] = eco_report['% ECO'].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
                 brand_reports[brand] = eco_report
 
-        # Keep SKU ECO reports processing
         sku_eco_reports = {}
         specific_skus = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
         for sku in specific_skus:
@@ -431,7 +448,9 @@ def process_canon(file_path, company):
             eco_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
             eco_report['ECO Target'] = eco_report['FSR'].map(brand_targets.get(sku, {})).fillna(0)
             eco_report['ECO Balance'] = eco_report['ECO Actual'] - eco_report['ECO Target']
-            eco_report['ECO %'] = (eco_report['ECO Actual'] / eco_report['ECO Target']) * 100
+            eco_report['ECO %'] = eco_report.apply(
+                lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+            )
             eco_report = add_totals_row(eco_report)
             for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
                 eco_report[col] = eco_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
@@ -441,7 +460,7 @@ def process_canon(file_path, company):
         return sales_report, brand_reports, sku_eco_reports
 
     except Exception as e:
-        print(f"Error processing {company} file: {e}")
+        logger.error(f"Error processing {company} file: {e}")
         raise ValueError(f"Error processing the {company} file: {e}")
 
 def process_jumra(file_path, company):
@@ -463,9 +482,13 @@ def process_jumra(file_path, company):
         sales_report['ECO Target'] = sales_report['FSR'].map(company_config['aer_fsr_targets']).fillna(0)
 
         sales_report['Sales Balance'] = sales_report['Sales Actual'] - sales_report['Sales Target']
-        sales_report['% Sales'] = (sales_report['Sales Actual'] / sales_report['Sales Target']) * 100
+        sales_report['% Sales'] = sales_report.apply(
+            lambda row: (row['Sales Actual'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+        )
         sales_report['ECO Balance'] = sales_report['ECO Actual'] - sales_report['ECO Target']
-        sales_report['% ECO'] = (sales_report['ECO Actual'] / sales_report['ECO Target']) * 100
+        sales_report['% ECO'] = sales_report.apply(
+            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+        )
 
         sales_report = sales_report[[
             'FSR', 'Unit', 'Sales Target', 'Sales Actual', 'Sales Balance', '% Sales',
@@ -498,9 +521,13 @@ def process_jumra(file_path, company):
                 sub_company_report['ECO Target'] = sub_company_report['FSR'].map(sub_company_eco_targets).fillna(0)
                 sub_company_report['Unit'] = sub_company_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
                 sub_company_report['Sales Balance'] = sub_company_report['Actual Sales'] - sub_company_report['Sales Target']
-                sub_company_report['% Sales'] = (sub_company_report['Actual Sales'] / sub_company_report['Sales Target']) * 100
+                sub_company_report['% Sales'] = sub_company_report.apply(
+                    lambda row: (row['Actual Sales'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+                )
                 sub_company_report['ECO Balance'] = sub_company_report['ECO Actual'] - sub_company_report['ECO Target']
-                sub_company_report['% ECO'] = (sub_company_report['ECO Actual'] / sub_company_report['ECO Target']) * 100
+                sub_company_report['% ECO'] = sub_company_report.apply(
+                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                )
                 sub_company_report = sub_company_report[[
                     'FSR', 'Unit', 'Sales Target', 'Actual Sales', 'Sales Balance', '% Sales',
                     'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
@@ -519,9 +546,13 @@ def process_jumra(file_path, company):
                 sub_company_report['ECO Target'] = sub_company_report['FSR'].map(sub_company_eco_targets).fillna(0)
                 sub_company_report['Unit'] = sub_company_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
                 sub_company_report['Sales Balance'] = sub_company_report['Actual Sales'] - sub_company_report['Sales Target']
-                sub_company_report['% Sales'] = (sub_company_report['Actual Sales'] / sub_company_report['Sales Target']) * 100
+                sub_company_report['% Sales'] = sub_company_report.apply(
+                    lambda row: (row['Actual Sales'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+                )
                 sub_company_report['ECO Balance'] = sub_company_report['ECO Actual'] - sub_company_report['ECO Target']
-                sub_company_report['% ECO'] = (sub_company_report['ECO Actual'] / sub_company_report['ECO Target']) * 100
+                sub_company_report['% ECO'] = sub_company_report.apply(
+                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                )
                 sub_company_report = add_totals_row(sub_company_report)
                 for col in ['Sales Target', 'Actual Sales', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
                     sub_company_report[col] = sub_company_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
@@ -543,7 +574,9 @@ def process_jumra(file_path, company):
                 eco_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
                 eco_report['ECO Target'] = eco_report['FSR'].map(targets).fillna(0)
                 eco_report['ECO Balance'] = eco_report['ECO Actual'] - eco_report['ECO Target']
-                eco_report['% ECO'] = (eco_report['ECO Actual'] / eco_report['ECO Target']) * 100
+                eco_report['% ECO'] = eco_report.apply(
+                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                )
                 eco_report = add_totals_row(eco_report)
                 for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
                     eco_report[col] = eco_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
@@ -553,7 +586,7 @@ def process_jumra(file_path, company):
         return sales_report, sub_company_reports, eco_reports
 
     except Exception as e:
-        print(f"Error processing {company} file: {e}")
+        logger.error(f"Error processing {company} file: {e}")
         raise ValueError(f"Error processing the {company} file: {e}")
 
 def process_excel(file_path, company):
@@ -569,18 +602,32 @@ def create_consolidated_excel(company, reports_data):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         if company in ['Canon', 'Canon Eldoret']:
             sales_report, brand_reports, sku_eco_reports = reports_data
+            logger.debug(f"Writing General Sales for {company}")
             sales_report.to_excel(writer, sheet_name='General Sales', index=False)
             for brand, report in brand_reports.items():
-                report.to_excel(writer, sheet_name=f'{brand} ECO', index=False)
+                if report is not None and not report.empty:
+                    safe_sheet_name = f"{brand} ECO"[:31]
+                    logger.debug(f"Writing {safe_sheet_name}")
+                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
             for sku, report in sku_eco_reports.items():
-                report.to_excel(writer, sheet_name=f'{sku} ECO', index=False)
+                if report is not None and not report.empty:
+                    safe_sheet_name = f"{sku} ECO"[:31]
+                    logger.debug(f"Writing {safe_sheet_name}")
+                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
         elif company in ['Jumra', 'Jumra Eldoret']:
             sales_report, sub_company_reports, eco_reports = reports_data
+            logger.debug(f"Writing General Sales for {company}")
             sales_report.to_excel(writer, sheet_name='General Sales', index=False)
             for sub_company, report in sub_company_reports.items():
-                report.to_excel(writer, sheet_name=f'{sub_company} Report', index=False)
+                if report is not None and not report.empty:
+                    safe_sheet_name = f"{sub_company} Report"[:31]
+                    logger.debug(f"Writing {safe_sheet_name}")
+                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
             for brand, report in eco_reports.items():
-                report.to_excel(writer, sheet_name=f'{brand} ECO', index=False)
+                if report is not None and not report.empty:
+                    safe_sheet_name = f"{brand} ECO"[:31]
+                    logger.debug(f"Writing {safe_sheet_name}")
+                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
     output.seek(0)
     return output
 
@@ -588,199 +635,95 @@ def create_consolidated_excel(company, reports_data):
 def upload_file():
     if request.method == 'POST':
         if 'file' not in request.files:
-            return 'No file uploaded.'
+            return 'No file uploaded.', 400
 
         file = request.files['file']
         company = request.form.get('company')
 
         if file.filename == '':
-            return 'No file selected.'
+            return 'No file selected.', 400
 
         if not company:
-            return 'No company selected.'
+            return 'No company selected.', 400
 
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(file_path)
+        session['uploaded_file_path'] = file_path
 
         try:
             reports_data = process_excel(file_path, company)
-            if reports_data is None:
-                return 'Error processing the file.'
-
             today_date = datetime.today().strftime('%Y-%m-%d')
-
             if company in ['Canon', 'Canon Eldoret']:
                 sales_report, brand_reports, sku_eco_reports = reports_data
+                # Generate HTML table without percentage classes
+                html_table = sales_report.to_html(classes="table table-striped table-bordered", index=False)
                 return render_template(
                     "canon_report.html",
-                    sales_report=sales_report.to_html(classes="table table-striped table-bordered", index=False),
+                    sales_report=html_table,
                     brand_reports=brand_reports,
                     sku_eco_reports=sku_eco_reports,
                     today_date=today_date,
                     company=company,
-                    download_filename=f"{company}_consolidated_report.xlsx"
+                    download_filename=f"{company}_consolidated_report.xlsx",
+                    original_filename=file.filename
                 )
             elif company in ['Jumra', 'Jumra Eldoret']:
                 sales_report, sub_company_reports, eco_reports = reports_data
+                # Generate HTML table without percentage classes
+                html_table = sales_report.to_html(classes="table table-striped table-bordered", index=False)
                 return render_template(
                     "jumra_report.html",
-                    sales_report=sales_report.to_html(classes="table table-striped table-bordered", index=False),
+                    sales_report=html_table,
                     sub_company_reports=sub_company_reports,
                     eco_reports=eco_reports,
                     today_date=today_date,
                     company=company,
                     company_config=COMPANIES[company]['sub_companies'],
-                    download_filename=f"{company}_consolidated_report.xlsx"
+                    download_filename=f"{company}_consolidated_report.xlsx",
+                    original_filename=file.filename
                 )
         except Exception as e:
-            return f'Error: {e}'
-        finally:
-            if os.path.exists(file_path):
-                os.remove(file_path)
+            logger.error(f"Upload error: {e}")
+            return f'Error: {e}', 500
 
-    return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload Sales Data</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
-            font-family: 'Poppins', sans-serif;
-            color: #333;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            max-width: 1000px;
-            background-color: #fff;
-            border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            transition: transform 0.3s ease;
-        }
-        .container:hover {
-            transform: translateY(-5px);
-        }
-        h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 20px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .instructions {
-            background-color: #f8f9fa;
-            border-left: 4px solid #6a11cb;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            font-size: 0.9rem;
-            color: #555;
-            line-height: 1.5;
-        }
-        .form-label {
-            font-weight: 500;
-            color: #34495e;
-            margin-bottom: 8px;
-        }
-        .form-control, .form-select {
-            border-radius: 8px;
-            border: 1px solid #ced4da;
-            padding: 10px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        .form-control:focus, .form-select:focus {
-            border-color: #6a11cb;
-            box-shadow: 0 0 5px rgba(106, 17, 203, 0.3);
-            outline: none;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #6a11cb, #2575fc);
-            border: none;
-            padding: 12px 25px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: background 0.3s ease, transform 0.3s ease;
-        }
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #2575fc, #6a11cb);
-            transform: translateY(-2px);
-        }
-        .btn-primary:active {
-            transform: translateY(1px);
-        }
-        .mb-3 {
-            margin-bottom: 20px !important;
-        }
-        @media (max-width: 576px) {
-            .container {
-                padding: 20px;
-                margin: 15px;
-            }
-            h1 {
-                font-size: 1.5rem;
-            }
-            .btn-primary {
-                width: 100%;
-                padding: 10px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container mt-5">
-        <h1 class="text-center">Upload Sales Data</h1>
-        <div class="instructions">
-            <p>After downloading sales from Sale Edge, open it and delete the first line which contains the date. Then, proceed to upload the data, otherwise, you’ll encounter an error.</p>
-        </div>
-        <form method="post" enctype="multipart/form-data" class="mt-4">
-            <div class="mb-3">
-                <label for="company" class="form-label">Select Company</label>
-                <select class="form-select" id="company" name="company" required>
-                    <option value="">Choose a company</option>
-                    <option value="Canon">Canon Nakuru</option>
-                    <option value="Canon Eldoret">Canon Eldoret</option>
-                    <option value="Jumra">Jumra Nakuru</option>
-                    <option value="Jumra Eldoret">Jumra Eldoret</option>
-                </select>
-            </div>
-            <div class="mb-3">
-                <label for="file" class="form-label">Upload File</label>
-                <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
-            </div>
-            <div class="text-center">
-                <button type="submit" class="btn btn-primary">Upload and Generate Reports</button>
-            </div>
-        </form>
-    </div>
-</body>
-</html>
-    '''
+    return render_template('upload.html')
 
 @app.route('/download_consolidated/<company>/<filename>')
 def download_consolidated(company, filename):
-    reports_data = process_excel(os.path.join(UPLOAD_FOLDER, f"{company}_temp.xlsx"), company)
-    excel_file = create_consolidated_excel(company, reports_data)
-    return send_file(
-        excel_file,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=filename
-    )
+    file_path = session.get('uploaded_file_path')
+    if file_path and os.path.exists(file_path):
+        try:
+            reports_data = process_excel(file_path, company)
+            excel_file = create_consolidated_excel(company, reports_data)
+            return send_file(
+                excel_file,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=filename
+            )
+        except Exception as e:
+            logger.error(f"Error generating consolidated report: {e}")
+            return f"Error generating consolidated report: {e}", 500
+    return "No uploaded file available. Please upload a file first.", 404
+
+@app.route('/download_original/<company>')
+def download_original(company):
+    file_path = session.get('uploaded_file_path')
+    if file_path and os.path.exists(file_path):
+        original_filename = os.path.basename(file_path)
+        response = send_file(
+            file_path,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=original_filename
+        )
+        try:
+            os.remove(file_path)
+            session.pop('uploaded_file_path', None)
+        except:
+            pass
+        return response
+    return "File not found or already downloaded.", 404
 
 if __name__ == '__main__':
     app.run(debug=True)
