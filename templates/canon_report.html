@@ -151,9 +151,9 @@
 
         <!-- General Sales Report -->
         <div class="report">
-            <h2>General Sales Report</h2>
+            <h2>{{ company }} Sales Report</h2>
             <p>Report Date: {{ today_date }}</p>
-            {{ sales_report | safe }}
+            {{ sales_report.replace('Walkin  Sales', 'KHETIAS') | safe }}
         </div>
 
         <!-- Brand ECO Reports -->
@@ -164,7 +164,7 @@
                 {% if report is not none %}
                     <div class="report">
                         <h3>{{ brand }} ECO Report</h3>
-                        {{ report.to_html(classes="table table-striped table-bordered", index=False) | safe }}
+                        {{ report.to_html(classes="table table-striped table-bordered", index=False).replace('Walkin  Sales', 'KHETIAS') | safe }}
                     </div>
                 {% else %}
                     <div class="report">
@@ -193,7 +193,7 @@
                                 {{ sku }} ECO Report
                             {% endif %}
                         </h3>
-                        {{ report.to_html(classes="table table-striped table-bordered", index=False) | safe }}
+                        {{ report.to_html(classes="table table-striped table-bordered", index=False).replace('Walkin  Sales', 'KHETIAS') | safe }}
                     </div>
                 {% else %}
                     <div class="report">
