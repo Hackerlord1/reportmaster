@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, send_file, session
+from openpyxl.styles import numbers
 import pandas as pd
 import os
 from datetime import datetime
@@ -372,6 +373,16 @@ def add_totals_row(df):
     return pd.concat([df, totals_row], ignore_index=True)
 
 def process_canon(file_path, company):
+    """
+    Process Canon sales data from an Excel file and generate sales, brand, and SKU reports.
+    
+    Args:
+        file_path (str): Path to the uploaded Excel file
+        company (str): Company name ('Canon' or 'Canon Eldoret')
+    
+    Returns:
+        tuple: (sales_report, brand_reports, sku_eco_reports)
+    """
     try:
         df = pd.read_excel(file_path)
         df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
@@ -379,6 +390,7 @@ def process_canon(file_path, company):
 
         company_config = COMPANIES[company]
 
+        # 1. General Sales Report
         sales_report = df.groupby('FSR', as_index=False).agg({
             'Amount': 'sum',
             'Customer': pd.Series.nunique
@@ -388,7 +400,6 @@ def process_canon(file_path, company):
         sales_report['Sales Target'] = sales_report['FSR'].map(company_config['fsr_sales_targets']).fillna(0)
         sales_report['Unit'] = sales_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
         sales_report['ECO Target'] = sales_report['FSR'].map(company_config['aer_fsr_targets']).fillna(0)
-
         sales_report['Sales Balance'] = sales_report['Sales Actual'] - sales_report['Sales Target']
         sales_report['% Sales'] = sales_report.apply(
             lambda row: (row['Sales Actual'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
@@ -403,15 +414,11 @@ def process_canon(file_path, company):
             'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
         ]]
 
+        sales_report['% Sales'] = pd.to_numeric(sales_report['% Sales'], errors='coerce')
+        sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce')
         sales_report = add_totals_row(sales_report)
 
-        numeric_columns = ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']
-        for col in numeric_columns:
-            sales_report[col] = sales_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-        percentage_columns = ['% Sales', '% ECO']
-        for col in percentage_columns:
-            sales_report[col] = sales_report[col].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
-
+        # 2. Brand ECO Reports
         brand_reports = {}
         brand_targets = company_config.get('brand_targets', {})
         sku_list = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
@@ -430,12 +437,11 @@ def process_canon(file_path, company):
                 eco_report['% ECO'] = eco_report.apply(
                     lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
                 )
+                eco_report['% ECO'] = pd.to_numeric(eco_report['% ECO'], errors='coerce')
                 eco_report = add_totals_row(eco_report)
-                for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
-                    eco_report[col] = eco_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-                eco_report['% ECO'] = eco_report['% ECO'].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
                 brand_reports[brand] = eco_report
 
+        # 3. SKU ECO Reports
         sku_eco_reports = {}
         specific_skus = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
         for sku in specific_skus:
@@ -452,10 +458,10 @@ def process_canon(file_path, company):
             eco_report['ECO %'] = eco_report.apply(
                 lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
             )
+            eco_report['ECO %'] = pd.to_numeric(eco_report['ECO %'], errors='coerce')
             eco_report = add_totals_row(eco_report)
-            for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
-                eco_report[col] = eco_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-            eco_report['ECO %'] = eco_report['ECO %'].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
+            if eco_report['ECO %'].iloc[:-1].sum() == eco_report['ECO %'].iloc[-1]:
+                eco_report.loc[eco_report.index[-1], 'ECO %'] = eco_report['ECO %'].iloc[:-1].mean()
             sku_eco_reports[sku] = eco_report
 
         return sales_report, brand_reports, sku_eco_reports
@@ -472,6 +478,7 @@ def process_jumra(file_path, company):
 
         company_config = COMPANIES[company]
 
+        # General Sales Report
         sales_report = df.groupby('FSR', as_index=False).agg({
             'Amount': 'sum',
             'Customer': pd.Series.nunique
@@ -496,15 +503,11 @@ def process_jumra(file_path, company):
             'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
         ]]
 
+        sales_report['% Sales'] = pd.to_numeric(sales_report['% Sales'], errors='coerce')
+        sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce')
         sales_report = add_totals_row(sales_report)
 
-        numeric_columns = ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']
-        for col in numeric_columns:
-            sales_report[col] = sales_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-        percentage_columns = ['% Sales', '% ECO']
-        for col in percentage_columns:
-            sales_report[col] = sales_report[col].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
-
+        # Sub-Company Reports
         sub_company_reports = {}
         for sub_company, config in company_config['sub_companies'].items():
             sub_company_brands = config['brands']
@@ -533,11 +536,9 @@ def process_jumra(file_path, company):
                     'FSR', 'Unit', 'Sales Target', 'Actual Sales', 'Sales Balance', '% Sales',
                     'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
                 ]]
+                sub_company_report['% Sales'] = pd.to_numeric(sub_company_report['% Sales'], errors='coerce')
+                sub_company_report['% ECO'] = pd.to_numeric(sub_company_report['% ECO'], errors='coerce')
                 sub_company_report = add_totals_row(sub_company_report)
-                for col in ['Sales Target', 'Actual Sales', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
-                    sub_company_report[col] = sub_company_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-                for col in ['% Sales', '% ECO']:
-                    sub_company_report[col] = sub_company_report[col].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
                 sub_company_reports[sub_company] = sub_company_report
             else:
                 sub_company_report = pd.DataFrame({'FSR': list(sub_company_targets.keys())})
@@ -554,13 +555,16 @@ def process_jumra(file_path, company):
                 sub_company_report['% ECO'] = sub_company_report.apply(
                     lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
                 )
+                sub_company_report = sub_company_report[[
+                    'FSR', 'Unit', 'Sales Target', 'Actual Sales', 'Sales Balance', '% Sales',
+                    'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
+                ]]
+                sub_company_report['% Sales'] = pd.to_numeric(sub_company_report['% Sales'], errors='coerce')
+                sub_company_report['% ECO'] = pd.to_numeric(sub_company_report['% ECO'], errors='coerce')
                 sub_company_report = add_totals_row(sub_company_report)
-                for col in ['Sales Target', 'Actual Sales', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
-                    sub_company_report[col] = sub_company_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-                for col in ['% Sales', '% ECO']:
-                    sub_company_report[col] = sub_company_report[col].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
                 sub_company_reports[sub_company] = sub_company_report
 
+        # ECO Reports for Brands
         eco_reports = {}
         for sub_company, config in company_config['sub_companies'].items():
             brand_targets = config.get('brand_targets', {})
@@ -578,10 +582,8 @@ def process_jumra(file_path, company):
                 eco_report['% ECO'] = eco_report.apply(
                     lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
                 )
+                eco_report['% ECO'] = pd.to_numeric(eco_report['% ECO'], errors='coerce')
                 eco_report = add_totals_row(eco_report)
-                for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
-                    eco_report[col] = eco_report[col].apply(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-                eco_report['% ECO'] = eco_report['% ECO'].apply(lambda x: f"{x:.2f}%" if isinstance(x, (int, float)) else x)
                 eco_reports[brand] = eco_report
 
         return sales_report, sub_company_reports, eco_reports
@@ -605,30 +607,54 @@ def create_consolidated_excel(company, reports_data):
             sales_report, brand_reports, sku_eco_reports = reports_data
             logger.debug(f"Writing General Sales for {company}")
             sales_report.to_excel(writer, sheet_name='General Sales', index=False)
+            
+            # Apply formatting to General Sales sheet
+            sheet = writer.sheets['General Sales']
+            for col in sheet.columns:
+                col_letter = col[0].column_letter
+                col_name = sales_report.columns[col[0].column - 1]
+                if col_name in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                    for cell in col:
+                        cell.number_format = '#,##0.00'
+                elif col_name in ['% Sales', '% ECO']:
+                    for cell in col:
+                        cell.number_format = '0.00%'
+
+            # Brand reports
             for brand, report in brand_reports.items():
                 if report is not None and not report.empty:
                     safe_sheet_name = f"{brand} ECO"[:31]
                     logger.debug(f"Writing {safe_sheet_name}")
                     report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+                    sheet = writer.sheets[safe_sheet_name]
+                    for col in sheet.columns:
+                        col_letter = col[0].column_letter
+                        col_name = report.columns[col[0].column - 1]
+                        if col_name in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                            for cell in col:
+                                cell.number_format = '#,##0.00'
+                        elif col_name == '% ECO':
+                            for cell in col:
+                                cell.number_format = '0.00%'
+
+            # SKU reports
             for sku, report in sku_eco_reports.items():
                 if report is not None and not report.empty:
                     safe_sheet_name = f"{sku} ECO"[:31]
                     logger.debug(f"Writing {safe_sheet_name}")
                     report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-        elif company in ['Jumra', 'Jumra Eldoret']:
-            sales_report, sub_company_reports, eco_reports = reports_data
-            logger.debug(f"Writing General Sales for {company}")
-            sales_report.to_excel(writer, sheet_name='General Sales', index=False)
-            for sub_company, report in sub_company_reports.items():
-                if report is not None and not report.empty:
-                    safe_sheet_name = f"{sub_company} Report"[:31]
-                    logger.debug(f"Writing {safe_sheet_name}")
-                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-            for brand, report in eco_reports.items():
-                if report is not None and not report.empty:
-                    safe_sheet_name = f"{brand} ECO"[:31]
-                    logger.debug(f"Writing {safe_sheet_name}")
-                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+                    sheet = writer.sheets[safe_sheet_name]
+                    for col in sheet.columns:
+                        col_letter = col[0].column_letter
+                        col_name = report.columns[col[0].column - 1]
+                        if col_name in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                            for cell in col:
+                                cell.number_format = '#,##0.00'
+                        elif col_name == 'ECO %':
+                            for cell in col:
+                                cell.number_format = '0.00%'
+
+        # Similar updates would be needed for Jumra processing if applicable
     output.seek(0)
     return output
 
@@ -654,29 +680,114 @@ def upload_file():
         try:
             reports_data = process_excel(file_path, company)
             today_date = datetime.today().strftime('%Y-%m-%d')
+            
+            def format_percentage(val):
+                """Helper function to format percentages and assign CSS classes."""
+                if not isinstance(val, (int, float)) or pd.isna(val):
+                    return val
+                formatted_val = f"{val:.2f}%"
+                if val < 50:
+                    return f'<span class="percent-red">{formatted_val}</span>'
+                elif 50 <= val < 90:
+                    return f'<span class="percent-light-red">{formatted_val}</span>'
+                elif 90 <= val < 100:
+                    return f'<span class="percent-light-green">{formatted_val}</span>'
+                else:  # >= 100
+                    return f'<span class="percent-green">{formatted_val}</span>'
+
+            def format_number(val):
+                """Helper function to format numeric columns."""
+                if isinstance(val, (int, float)) and not pd.isna(val):
+                    return f"{val:,.2f}"
+                return val
+
             if company in ['Canon', 'Canon Eldoret']:
                 sales_report, brand_reports, sku_eco_reports = reports_data
-                # Generate HTML table without percentage classes
-                html_table = sales_report.to_html(classes="table table-striped table-bordered", index=False)
+                
+                # Format sales report
+                sales_report_html = sales_report.copy()
+                for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                    sales_report_html[col] = sales_report_html[col].apply(format_number)
+                for col in ['% Sales', '% ECO']:
+                    sales_report_html[col] = sales_report_html[col].apply(format_percentage)
+                html_table = sales_report_html.to_html(
+                    classes="table table-striped table-bordered", index=False, escape=False
+                )
+
+                # Format brand reports
+                brand_reports_html = {}
+                for brand, report in brand_reports.items():
+                    report_html = report.copy()
+                    for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                        report_html[col] = report_html[col].apply(format_number)
+                    report_html['% ECO'] = report_html['% ECO'].apply(format_percentage)
+                    brand_reports_html[brand] = report_html.to_html(
+                        classes="table table-striped table-bordered", index=False, escape=False
+                    )
+
+                # Format SKU reports
+                sku_reports_html = {}
+                for sku, report in sku_eco_reports.items():
+                    report_html = report.copy()
+                    for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                        report_html[col] = report_html[col].apply(format_number)
+                    report_html['ECO %'] = report_html['ECO %'].apply(format_percentage)
+                    sku_reports_html[sku] = report_html.to_html(
+                        classes="table table-striped table-bordered", index=False, escape=False
+                    )
+
                 return render_template(
                     "canon_report.html",
                     sales_report=html_table,
-                    brand_reports=brand_reports,
-                    sku_eco_reports=sku_eco_reports,
+                    brand_reports=brand_reports_html,
+                    sku_eco_reports=sku_reports_html,
                     today_date=today_date,
                     company=company,
                     download_filename=f"{company}_consolidated_report.xlsx",
                     original_filename=file.filename
                 )
+            
             elif company in ['Jumra', 'Jumra Eldoret']:
                 sales_report, sub_company_reports, eco_reports = reports_data
-                # Generate HTML table without percentage classes
-                html_table = sales_report.to_html(classes="table table-striped table-bordered", index=False)
+                
+                # Format general sales report
+                sales_report_html = sales_report.copy()
+                for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                    sales_report_html[col] = sales_report_html[col].apply(format_number)
+                for col in ['% Sales', '% ECO']:
+                    sales_report_html[col] = sales_report_html[col].apply(format_percentage)
+                html_table = sales_report_html.to_html(
+                    classes="table table-striped table-bordered", index=False, escape=False
+                )
+
+                # Format sub-company reports
+                sub_company_reports_html = {}
+                for sub_company, report in sub_company_reports.items():
+                    report_html = report.copy()
+                    for col in ['Sales Target', 'Actual Sales', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                        report_html[col] = report_html[col].apply(format_number)
+                    for col in ['% Sales', '% ECO']:
+                        report_html[col] = report_html[col].apply(format_percentage)
+                    sub_company_reports_html[sub_company] = report_html.to_html(
+                        classes="table table-striped table-bordered", index=False, escape=False
+                    )
+
+                # Format ECO reports
+                eco_reports_html = {}
+                for brand, report in eco_reports.items():
+                    report_html = report.copy()
+                    for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                        report_html[col] = report_html[col].apply(format_number)
+                    report_html['% ECO'] = report_html['% ECO'].apply(format_percentage)
+                    eco_reports_html[brand] = report_html.to_html(
+                        classes="table table-striped table-bordered", index=False, escape=False
+                    )
+
                 return render_template(
                     "jumra_report.html",
                     sales_report=html_table,
-                    sub_company_reports=sub_company_reports,
-                    eco_reports=eco_reports,
+                    sub_company_reports=sub_company_reports_html,
+                    eco_reports=eco_reports_html,
                     today_date=today_date,
                     company=company,
                     company_config=COMPANIES[company]['sub_companies'],

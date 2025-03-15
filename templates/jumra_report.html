@@ -81,19 +81,31 @@
         .table-bordered th, .table-bordered td {
             border: 1px solid #dee2e6;
         }
-        /* Percentage Formatting Styles */
-        .pct-red {
-            background-color: #FF0000;
+        /* Updated Percentage Formatting Styles */
+        .percent-red {
+            background-color: #FF0000; /* Red */
             color: white;
+            display: block;
+            text-align: center;
+            padding: 2px;
         }
-        .pct-light-red {
-            background-color: #FF9999;
+        .percent-light-red {
+            background-color: #FF9999; /* Light Red */
+            display: block;
+            text-align: center;
+            padding: 2px;
         }
-        .pct-light-green {
-            background-color: #90EE90;
+        .percent-light-green {
+            background-color: #90EE90; /* Light Green */
+            display: block;
+            text-align: center;
+            padding: 2px;
         }
-        .pct-green {
-            background-color: #00FF00;
+        .percent-green {
+            background-color: #00FF00; /* Green */
+            display: block;
+            text-align: center;
+            padding: 2px;
         }
         .no-data {
             color: #e74c3c;
@@ -165,19 +177,19 @@
 
         <!-- General Sales Report -->
         <div class="report">
-            <h2>General Sales Report</h2>
-            <p>Report Date: {{ today_date }}</p>
+            <h2>{{ company }} Sales Report</h2>
+            <p>{{ date_range }}</p>
             {{ sales_report | safe }}
         </div>
 
-        <!-- Sub-Company Reports -->
+        <!-- Sub-Company Reports (Stacked Vertically) -->
         <h2 class="mt-5">Sub-Company Reports</h2>
         <p>Report Date: {{ today_date }}</p>
         {% for sub_company, report in sub_company_reports.items() %}
-            <div class="report">
+            <div class="report mt-4">
                 <h3>{{ sub_company }} Report</h3>
                 {% if report is not none %}
-                    {{ report.to_html(classes="table table-striped table-bordered", index=False) | safe }}
+                    {{ report | safe }}
                 {% else %}
                     <p class="no-data">No data available for {{ sub_company }}.</p>
                 {% endif %}
@@ -193,7 +205,7 @@
                     {% if eco_reports[brand] is not none %}
                         <div class="report">
                             <h3>{{ brand }} ECO Report</h3>
-                            {{ eco_reports[brand].to_html(classes="table table-striped table-bordered", index=False) | safe }}
+                            {{ eco_reports[brand] | safe }}
                         </div>
                     {% else %}
                         <div class="report">
@@ -208,7 +220,7 @@
         <!-- Footer -->
         <div class="footer">
             <p>Designed by <a href="#">Heman</a>. © 2025 All rights reserved.</p>
-            <p>Email: hemanchichir5517@outlook.com</p>
+            <p>Email: hemanchirchir5517@outlook.com</p>
         </div>
     </div>
 </body>

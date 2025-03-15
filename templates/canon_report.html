@@ -131,6 +131,32 @@
             flex: 1 1 45%;
             min-width: 300px;
         }
+        /* Conditional Formatting for Percentages */
+        .percent-red {
+            background-color: #FF0000; /* Red */
+            color: white;
+            display: block;
+            text-align: center;
+            padding: 2px;
+        }
+        .percent-light-red {
+            background-color: #FF9999; /* Light Red */
+            display: block;
+            text-align: center;
+            padding: 2px;
+        }
+        .percent-light-green {
+            background-color: #90EE90; /* Light Green */
+            display: block;
+            text-align: center;
+            padding: 2px;
+        }
+        .percent-green {
+            background-color: #00FF00; /* Green */
+            display: block;
+            text-align: center;
+            padding: 2px;
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -151,8 +177,8 @@
 
         <!-- General Sales Report -->
         <div class="report">
-            <h2>{{ company }} Sales Report</h2>
-            <p>Report Date: {{ today_date }}</p>
+            <h2>General Sales Report</h2>
+            <p>{{ date_range }}</p>
             {{ sales_report.replace('Walkin  Sales', 'KHETIAS') | safe }}
         </div>
 
@@ -164,7 +190,7 @@
                 {% if report is not none %}
                     <div class="report">
                         <h3>{{ brand }} ECO Report</h3>
-                        {{ report.to_html(classes="table table-striped table-bordered", index=False).replace('Walkin  Sales', 'KHETIAS') | safe }}
+                        {{ report.replace('Walkin  Sales', 'KHETIAS') | safe }}
                     </div>
                 {% else %}
                     <div class="report">
@@ -193,7 +219,7 @@
                                 {{ sku }} ECO Report
                             {% endif %}
                         </h3>
-                        {{ report.to_html(classes="table table-striped table-bordered", index=False).replace('Walkin  Sales', 'KHETIAS') | safe }}
+                        {{ report.replace('Walkin  Sales', 'KHETIAS') | safe }}
                     </div>
                 {% else %}
                     <div class="report">
