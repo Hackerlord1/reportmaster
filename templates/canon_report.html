@@ -165,7 +165,7 @@
         <!-- Header Section -->
         <div class="header">
             <h1>{{ company }} Sales Report</h1>
-            <p>Report Date: {{ today_date }}</p>
+            <p>{{ date_range }}</p>
         </div>
 
         <!-- Consolidated Download Button -->
@@ -184,7 +184,7 @@
 
         <!-- Brand ECO Reports -->
         <h2 class="mt-5">Brand ECO Reports</h2>
-        <p>Report Date: {{ today_date }}</p>
+        <p>{{ date_range }}</p>
         <div class="eco-container">
             {% for brand, report in brand_reports.items() %}
                 {% if report is not none %}
@@ -203,7 +203,7 @@
 
         <!-- SKU ECO Reports with Renamed Titles -->
         <h2 class="mt-5">SKU ECO Reports</h2>
-        <p>Report Date: {{ today_date }}</p>
+        <p>{{ date_range }}</p>
         <div class="eco-container">
             {% for sku, report in sku_eco_reports.items() %}
                 {% if report is not none %}

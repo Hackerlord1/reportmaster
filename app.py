@@ -84,16 +84,15 @@ COMPANIES = {
             'BEATRICE INGABIRE': 2784000,
             'FANCY CHEPNGENO ': 928000,
             'IRENE MUNYOKA': 812000,
-            'EZEKIEL NJOROGE':1044000,
-            'Walkin  Sales':3132000.
-            
+            'EZEKIEL NJOROGE': 1044000,
+            'Walkin  Sales': 3132000.
         },
         'unit_targets': {
             'ANGELA AKIRAPA': 'Retail',
             'BEATRICE INGABIRE': 'Retail/Marble',
             'FANCY CHEPNGENO ': 'Retail',
             'IRENE MUNYOKA': 'Retail',
-            'EZEKIEL NJOROGE':'Ratail',
+            'EZEKIEL NJOROGE': 'Ratail',
             'Walkin  Sales': 'Wholesale',
         },
         'aer_fsr_targets': {
@@ -101,8 +100,7 @@ COMPANIES = {
             'BEATRICE INGABIRE': 150,
             'FANCY CHEPNGENO ': 250,
             'IRENE MUNYOKA': 250,
-            'EZEKIEL NJOROGE':250,
-            
+            'EZEKIEL NJOROGE': 250,
         },
         'brand_targets': {
             'GOODNIGHT INSECT KILLER': {
@@ -110,40 +108,35 @@ COMPANIES = {
                 'BEATRICE INGABIRE': 12,
                 'FANCY CHEPNGENO ': 12,
                 'IRENE MUNYOKA': 12,
-                'EZEKIEL NJOROGE':15,
-                
+                'EZEKIEL NJOROGE': 15,
             },
             'AER POWER POCKET': {
                 'ANGELA AKIRAPA': 15,
                 'BEATRICE INGABIRE': 15,
                 'FANCY CHEPNGENO ': 15,
                 'IRENE MUNYOKA': 15,
-                'EZEKIEL NJOROGE':15,
-            
+                'EZEKIEL NJOROGE': 15,
             },
             'FGWHHMG0N01': {
                 'ANGELA AKIRAPA': 40,
                 'BEATRICE INGABIRE': 50,
                 'FANCY CHEPNGENO ': 25,
                 'IRENE MUNYOKA': 25,
-                'EZEKIEL NJOROGE':20,
-                
+                'EZEKIEL NJOROGE': 20,
             },
             'FGWHHMG0N02': {
                 'ANGELA AKIRAPA': 40,
                 'BEATRICE INGABIRE': 50,
                 'FANCY CHEPNGENO ': 25,
                 'IRENE MUNYOKA': 25,
-                'EZEKIEL NJOROGE':20,
-                
+                'EZEKIEL NJOROGE': 20,
             },
             'FGWHTRMG0003': {
                 'ANGELA AKIRAPA': 40,
                 'BEATRICE INGABIRE': 50,
                 'FANCY CHEPNGENO ': 25,
                 'IRENE MUNYOKA': 25,
-                'EZEKIEL NJOROGE':20,
-                
+                'EZEKIEL NJOROGE': 20,
             },
         },
     },
@@ -372,19 +365,19 @@ def add_totals_row(df):
     totals_row = pd.DataFrame(totals, index=["KD Totals"])
     return pd.concat([df, totals_row], ignore_index=True)
 
-def process_canon(file_path, company):
+def process_canon(file_path, company, df):
     """
     Process Canon sales data from an Excel file and generate sales, brand, and SKU reports.
     
     Args:
-        file_path (str): Path to the uploaded Excel file
+        file_path (str): Path to the uploaded Excel file (kept for compatibility)
         company (str): Company name ('Canon' or 'Canon Eldoret')
+        df (pd.DataFrame): Preloaded DataFrame with data starting from the second row
     
     Returns:
         tuple: (sales_report, brand_reports, sku_eco_reports)
     """
     try:
-        df = pd.read_excel(file_path)
         df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
         df['Brand'] = df['Brand'].astype(str).str.strip().str.upper()
 
@@ -470,9 +463,19 @@ def process_canon(file_path, company):
         logger.error(f"Error processing {company} file: {e}")
         raise ValueError(f"Error processing the {company} file: {e}")
 
-def process_jumra(file_path, company):
+def process_jumra(file_path, company, df):
+    """
+    Process Jumra sales data from an Excel file and generate sales, sub-company, and ECO reports.
+    
+    Args:
+        file_path (str): Path to the uploaded Excel file (kept for compatibility)
+        company (str): Company name ('Jumra' or 'Jumra Eldoret')
+        df (pd.DataFrame): Preloaded DataFrame with data starting from the second row
+    
+    Returns:
+        tuple: (sales_report, sub_company_reports, eco_reports)
+    """
     try:
-        df = pd.read_excel(file_path)
         df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
         df['Brand'] = df['Brand'].astype(str).str.strip().str.upper()
 
@@ -593,18 +596,30 @@ def process_jumra(file_path, company):
         raise ValueError(f"Error processing the {company} file: {e}")
 
 def process_excel(file_path, company):
+    # Read the first row to extract the date range
+    date_range_df = pd.read_excel(file_path, nrows=1, header=None)
+    date_range = date_range_df.iloc[0, 0]  # Assuming "From: ... To: ..." is in the first column
+
+    # Read the actual data, skipping the first row and using the second row as header
+    df = pd.read_excel(file_path, skiprows=1)  # Skip the first row, second row becomes header
+
     if company in ['Canon', 'Canon Eldoret']:
-        return process_canon(file_path, company)
+        sales_report, brand_reports, sku_eco_reports = process_canon(file_path, company, df)
+        return sales_report, brand_reports, sku_eco_reports, date_range
     elif company in ['Jumra', 'Jumra Eldoret']:
-        return process_jumra(file_path, company)
+        sales_report, sub_company_reports, eco_reports = process_jumra(file_path, company, df)
+        return sales_report, sub_company_reports, eco_reports, date_range
     else:
         raise ValueError(f"Invalid company: {company}")
 
-def create_consolidated_excel(company, reports_data):
+def create_consolidated_excel(company, file_path):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Read the Excel file, skipping the first row (date range), and use the second row as header
+        df = pd.read_excel(file_path, skiprows=1)
+
         if company in ['Canon', 'Canon Eldoret']:
-            sales_report, brand_reports, sku_eco_reports = reports_data
+            sales_report, brand_reports, sku_eco_reports = process_canon(file_path, company, df)
             logger.debug(f"Writing General Sales for {company}")
             sales_report.to_excel(writer, sheet_name='General Sales', index=False)
             
@@ -654,7 +669,57 @@ def create_consolidated_excel(company, reports_data):
                             for cell in col:
                                 cell.number_format = '0.00%'
 
-        # Similar updates would be needed for Jumra processing if applicable
+        elif company in ['Jumra', 'Jumra Eldoret']:
+            sales_report, sub_company_reports, eco_reports = process_jumra(file_path, company, df)
+            logger.debug(f"Writing General Sales for {company}")
+            sales_report.to_excel(writer, sheet_name='General Sales', index=False)
+            
+            # Apply formatting to General Sales sheet
+            sheet = writer.sheets['General Sales']
+            for col in sheet.columns:
+                col_letter = col[0].column_letter
+                col_name = sales_report.columns[col[0].column - 1]
+                if col_name in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                    for cell in col:
+                        cell.number_format = '#,##0.00'
+                elif col_name in ['% Sales', '% ECO']:
+                    for cell in col:
+                        cell.number_format = '0.00%'
+
+            # Sub-company reports
+            for sub_company, report in sub_company_reports.items():
+                if report is not None and not report.empty:
+                    safe_sheet_name = f"{sub_company} Sales"[:31]
+                    logger.debug(f"Writing {safe_sheet_name}")
+                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+                    sheet = writer.sheets[safe_sheet_name]
+                    for col in sheet.columns:
+                        col_letter = col[0].column_letter
+                        col_name = report.columns[col[0].column - 1]
+                        if col_name in ['Sales Target', 'Actual Sales', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                            for cell in col:
+                                cell.number_format = '#,##0.00'
+                        elif col_name in ['% Sales', '% ECO']:
+                            for cell in col:
+                                cell.number_format = '0.00%'
+
+            # ECO reports
+            for brand, report in eco_reports.items():
+                if report is not None and not report.empty:
+                    safe_sheet_name = f"{brand} ECO"[:31]
+                    logger.debug(f"Writing {safe_sheet_name}")
+                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+                    sheet = writer.sheets[safe_sheet_name]
+                    for col in sheet.columns:
+                        col_letter = col[0].column_letter
+                        col_name = report.columns[col[0].column - 1]
+                        if col_name in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                            for cell in col:
+                                cell.number_format = '#,##0.00'
+                        elif col_name == '% ECO':
+                            for cell in col:
+                                cell.number_format = '0.00%'
+
     output.seek(0)
     return output
 
@@ -679,10 +744,14 @@ def upload_file():
 
         try:
             reports_data = process_excel(file_path, company)
+            if company in ['Canon', 'Canon Eldoret']:
+                sales_report, brand_reports, sku_eco_reports, date_range = reports_data
+            elif company in ['Jumra', 'Jumra Eldoret']:
+                sales_report, sub_company_reports, eco_reports, date_range = reports_data
+
             today_date = datetime.today().strftime('%Y-%m-%d')
-            
+
             def format_percentage(val):
-                """Helper function to format percentages and assign CSS classes."""
                 if not isinstance(val, (int, float)) or pd.isna(val):
                     return val
                 formatted_val = f"{val:.2f}%"
@@ -692,19 +761,15 @@ def upload_file():
                     return f'<span class="percent-light-red">{formatted_val}</span>'
                 elif 90 <= val < 100:
                     return f'<span class="percent-light-green">{formatted_val}</span>'
-                else:  # >= 100
+                else:
                     return f'<span class="percent-green">{formatted_val}</span>'
 
             def format_number(val):
-                """Helper function to format numeric columns."""
                 if isinstance(val, (int, float)) and not pd.isna(val):
                     return f"{val:,.2f}"
                 return val
 
             if company in ['Canon', 'Canon Eldoret']:
-                sales_report, brand_reports, sku_eco_reports = reports_data
-                
-                # Format sales report
                 sales_report_html = sales_report.copy()
                 for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
                     sales_report_html[col] = sales_report_html[col].apply(format_number)
@@ -714,7 +779,6 @@ def upload_file():
                     classes="table table-striped table-bordered", index=False, escape=False
                 )
 
-                # Format brand reports
                 brand_reports_html = {}
                 for brand, report in brand_reports.items():
                     report_html = report.copy()
@@ -725,7 +789,6 @@ def upload_file():
                         classes="table table-striped table-bordered", index=False, escape=False
                     )
 
-                # Format SKU reports
                 sku_reports_html = {}
                 for sku, report in sku_eco_reports.items():
                     report_html = report.copy()
@@ -742,15 +805,13 @@ def upload_file():
                     brand_reports=brand_reports_html,
                     sku_eco_reports=sku_reports_html,
                     today_date=today_date,
+                    date_range=date_range,
                     company=company,
                     download_filename=f"{company}_consolidated_report.xlsx",
                     original_filename=file.filename
                 )
             
             elif company in ['Jumra', 'Jumra Eldoret']:
-                sales_report, sub_company_reports, eco_reports = reports_data
-                
-                # Format general sales report
                 sales_report_html = sales_report.copy()
                 for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
                     sales_report_html[col] = sales_report_html[col].apply(format_number)
@@ -760,7 +821,6 @@ def upload_file():
                     classes="table table-striped table-bordered", index=False, escape=False
                 )
 
-                # Format sub-company reports
                 sub_company_reports_html = {}
                 for sub_company, report in sub_company_reports.items():
                     report_html = report.copy()
@@ -772,7 +832,6 @@ def upload_file():
                         classes="table table-striped table-bordered", index=False, escape=False
                     )
 
-                # Format ECO reports
                 eco_reports_html = {}
                 for brand, report in eco_reports.items():
                     report_html = report.copy()
@@ -789,6 +848,7 @@ def upload_file():
                     sub_company_reports=sub_company_reports_html,
                     eco_reports=eco_reports_html,
                     today_date=today_date,
+                    date_range=date_range,
                     company=company,
                     company_config=COMPANIES[company]['sub_companies'],
                     download_filename=f"{company}_consolidated_report.xlsx",
@@ -805,8 +865,7 @@ def download_consolidated(company, filename):
     file_path = session.get('uploaded_file_path')
     if file_path and os.path.exists(file_path):
         try:
-            reports_data = process_excel(file_path, company)
-            excel_file = create_consolidated_excel(company, reports_data)
+            excel_file = create_consolidated_excel(company, file_path)
             return send_file(
                 excel_file,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

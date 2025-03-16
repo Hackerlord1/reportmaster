@@ -165,7 +165,7 @@
         <!-- Header Section -->
         <div class="header">
             <h1>{{ company }} Sales Report</h1>
-            <p>Report Date: {{ today_date }}</p>
+            <p>{{ date_range }}</p>
         </div>
 
         <!-- Consolidated Download Button -->
@@ -184,7 +184,7 @@
 
         <!-- Sub-Company Reports (Stacked Vertically) -->
         <h2 class="mt-5">Sub-Company Reports</h2>
-        <p>Report Date: {{ today_date }}</p>
+        <p>{{ date_range }}</p>
         {% for sub_company, report in sub_company_reports.items() %}
             <div class="report mt-4">
                 <h3>{{ sub_company }} Report</h3>
@@ -199,7 +199,7 @@
         <!-- ECO Reports for All Brands -->
         {% for sub_company in ['Kimberly Clark', 'Dabur'] %}
             <h2 class="mt-5">{{ sub_company }} ECO Reports</h2>
-            <p>Report Date: {{ today_date }}</p>
+            <p>{{ date_range }}</p>
             <div class="eco-container">
                 {% for brand in company_config[sub_company]['brands'] %}
                     {% if eco_reports[brand] is not none %}
