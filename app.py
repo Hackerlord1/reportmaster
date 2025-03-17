@@ -454,9 +454,9 @@ def process_canon(file_path, company, df):
                 lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
             )
             eco_report['ECO %'] = pd.to_numeric(eco_report['ECO %'], errors='coerce')
+            # Explicitly select desired columns to avoid extras
+            eco_report = eco_report[['FSR', 'ECO Target', 'ECO Actual', 'ECO Balance', 'ECO %']]
             eco_report = add_totals_row(eco_report)
-            if eco_report['ECO %'].iloc[:-1].sum() == eco_report['ECO %'].iloc[-1]:
-                eco_report.loc[eco_report.index[-1], 'ECO %'] = eco_report['ECO %'].iloc[:-1].mean()
             sku_eco_reports[sku] = eco_report
 
         return sales_report, brand_reports, sku_eco_reports
