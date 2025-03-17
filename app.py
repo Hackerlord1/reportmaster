@@ -101,6 +101,7 @@ COMPANIES = {
             'FANCY CHEPNGENO ': 250,
             'IRENE MUNYOKA': 250,
             'EZEKIEL NJOROGE': 250,
+            'Walkin  Sales': 23,
         },
         'brand_targets': {
             'GOODNIGHT INSECT KILLER': {
