@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, send_file, session
+from openpyxl.styles import Font, PatternFill, numbers
 from openpyxl.styles import numbers
 import pandas as pd
 import os
@@ -618,108 +619,66 @@ def create_consolidated_excel(company, file_path):
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         # Read the Excel file, skipping the first row (date range), and use the second row as header
         df = pd.read_excel(file_path, skiprows=1)
+        
+        # Create a single DataFrame to hold all consolidated data
+        consolidated_df = pd.DataFrame()
+        start_row = 0
 
         if company in ['Canon', 'Canon Eldoret']:
             sales_report, brand_reports, sku_eco_reports = process_canon(file_path, company, df)
-            logger.debug(f"Writing General Sales for {company}")
-            sales_report.to_excel(writer, sheet_name='General Sales', index=False)
             
-            # Apply formatting to General Sales sheet
-            sheet = writer.sheets['General Sales']
-            for col in sheet.columns:
-                col_letter = col[0].column_letter
-                col_name = sales_report.columns[col[0].column - 1]
-                if col_name in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
-                    for cell in col:
-                        cell.number_format = '#,##0.00'
-                elif col_name in ['% Sales', '% ECO']:
-                    for cell in col:
-                        cell.number_format = '0.00%'
-
-            # Brand reports
+            # Add General Sales Report
+            sales_report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+            start_row += len(sales_report) + 2  # Add 2 rows spacing
+            
+            # Add Brand Reports
             for brand, report in brand_reports.items():
                 if report is not None and not report.empty:
-                    safe_sheet_name = f"{brand} ECO"[:31]
-                    logger.debug(f"Writing {safe_sheet_name}")
-                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-                    sheet = writer.sheets[safe_sheet_name]
-                    for col in sheet.columns:
-                        col_letter = col[0].column_letter
-                        col_name = report.columns[col[0].column - 1]
-                        if col_name in ['ECO Target', 'ECO Actual', 'ECO Balance']:
-                            for cell in col:
-                                cell.number_format = '#,##0.00'
-                        elif col_name == '% ECO':
-                            for cell in col:
-                                cell.number_format = '0.00%'
-
-            # SKU reports
+                    report.insert(0, 'Report Type', f"{brand} ECO")  # Add identifier column
+                    report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+                    start_row += len(report) + 2  # Add 2 rows spacing
+            
+            # Add SKU Reports
             for sku, report in sku_eco_reports.items():
                 if report is not None and not report.empty:
-                    safe_sheet_name = f"{sku} ECO"[:31]
-                    logger.debug(f"Writing {safe_sheet_name}")
-                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-                    sheet = writer.sheets[safe_sheet_name]
-                    for col in sheet.columns:
-                        col_letter = col[0].column_letter
-                        col_name = report.columns[col[0].column - 1]
-                        if col_name in ['ECO Target', 'ECO Actual', 'ECO Balance']:
-                            for cell in col:
-                                cell.number_format = '#,##0.00'
-                        elif col_name == 'ECO %':
-                            for cell in col:
-                                cell.number_format = '0.00%'
+                    report.insert(0, 'Report Type', f"{sku} ECO")  # Add identifier column
+                    report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+                    start_row += len(report) + 2  # Add 2 rows spacing
 
         elif company in ['Jumra', 'Jumra Eldoret']:
             sales_report, sub_company_reports, eco_reports = process_jumra(file_path, company, df)
-            logger.debug(f"Writing General Sales for {company}")
-            sales_report.to_excel(writer, sheet_name='General Sales', index=False)
             
-            # Apply formatting to General Sales sheet
-            sheet = writer.sheets['General Sales']
-            for col in sheet.columns:
-                col_letter = col[0].column_letter
-                col_name = sales_report.columns[col[0].column - 1]
-                if col_name in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
-                    for cell in col:
-                        cell.number_format = '#,##0.00'
-                elif col_name in ['% Sales', '% ECO']:
-                    for cell in col:
-                        cell.number_format = '0.00%'
-
-            # Sub-company reports
+            # Add General Sales Report
+            sales_report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+            start_row += len(sales_report) + 2  # Add 2 rows spacing
+            
+            # Add Sub-Company Reports
             for sub_company, report in sub_company_reports.items():
                 if report is not None and not report.empty:
-                    safe_sheet_name = f"{sub_company} Sales"[:31]
-                    logger.debug(f"Writing {safe_sheet_name}")
-                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-                    sheet = writer.sheets[safe_sheet_name]
-                    for col in sheet.columns:
-                        col_letter = col[0].column_letter
-                        col_name = report.columns[col[0].column - 1]
-                        if col_name in ['Sales Target', 'Actual Sales', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
-                            for cell in col:
-                                cell.number_format = '#,##0.00'
-                        elif col_name in ['% Sales', '% ECO']:
-                            for cell in col:
-                                cell.number_format = '0.00%'
-
-            # ECO reports
+                    report.insert(0, 'Report Type', f"{sub_company} Sales")  # Add identifier column
+                    report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+                    start_row += len(report) + 2  # Add 2 rows spacing
+            
+            # Add ECO Reports
             for brand, report in eco_reports.items():
                 if report is not None and not report.empty:
-                    safe_sheet_name = f"{brand} ECO"[:31]
-                    logger.debug(f"Writing {safe_sheet_name}")
-                    report.to_excel(writer, sheet_name=safe_sheet_name, index=False)
-                    sheet = writer.sheets[safe_sheet_name]
-                    for col in sheet.columns:
-                        col_letter = col[0].column_letter
-                        col_name = report.columns[col[0].column - 1]
-                        if col_name in ['ECO Target', 'ECO Actual', 'ECO Balance']:
-                            for cell in col:
-                                cell.number_format = '#,##0.00'
-                        elif col_name == '% ECO':
-                            for cell in col:
-                                cell.number_format = '0.00%'
+                    report.insert(0, 'Report Type', f"{brand} ECO")  # Add identifier column
+                    report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+                    start_row += len(report) + 2  # Add 2 rows spacing
+
+        # Apply formatting to the entire sheet
+        sheet = writer.sheets['Consolidated Report']
+        for col in sheet.columns:
+            col_letter = col[0].column_letter
+            col_idx = col[0].column - 1
+            # Since we're now using one sheet, we need to get the column name from the DataFrame headers
+            # We'll apply formatting based on common column names across all reports
+            for cell in col:
+                cell_value = cell.value
+                if isinstance(cell_value, str) and any(x in cell_value for x in ['Target', 'Actual', 'Balance']):
+                    cell.number_format = '#,##0.00'
+                elif isinstance(cell_value, str) and any(x in cell_value for x in ['%', 'ECO %']):
+                    cell.number_format = '0.00%'
 
     output.seek(0)
     return output

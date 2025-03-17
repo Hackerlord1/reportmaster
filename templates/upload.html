@@ -106,7 +106,7 @@
     <div class="container mt-5">
         <h1 class="text-center">Upload Sales Data</h1>
         <div class="instructions">
-            <p>Works on Canon and Jumra!</p>
+            <p>Works on Canon and Jumra! Optionally upload a template to populate with data.</p>
         </div>
         <form method="post" enctype="multipart/form-data" class="mt-4">
             <div class="mb-3">
@@ -120,8 +120,12 @@
                 </select>
             </div>
             <div class="mb-3">
-                <label for="file" class="form-label">Upload File</label>
+                <label for="file" class="form-label">Upload Data File</label>
                 <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+            </div>
+            <div class="mb-3">
+                <label for="template" class="form-label">Upload Template File (Optional)</label>
+                <input type="file" class="form-control" id="template" name="template" accept=".xlsx">
             </div>
             <div class="text-center">
                 <button type="submit" class="btn btn-primary">Upload and Generate Reports</button>
