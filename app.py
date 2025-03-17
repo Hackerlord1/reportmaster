@@ -144,7 +144,7 @@ COMPANIES = {
     'Jumra': {
         'fsr_sales_targets': {
             'Jedidah Kemunto': 2000000,
-            'Ochieng Charles': 1300000,
+            'Ochieng Charles': 1700000,
             'Lenah Cheloti': 1300000,
             'Moses  Ngugi': 3000000,
         },
@@ -195,7 +195,7 @@ COMPANIES = {
                 'fsr_targets': {
                     'Jedidah Kemunto': 800000,
                     'Ochieng Charles': 900000,
-                    'Lenah Cheloti': 800000,
+                    'Lenah Cheloti': 600000,
                     'Moses  Ngugi': 1700000,
                 },
                 'eco_targets': {
