@@ -357,15 +357,43 @@ def add_totals_row(df):
     for column in df.columns:
         if pd.api.types.is_numeric_dtype(df[column]):
             if column.startswith('%'):
-                totals[column] = df[column].mean()
+                # Skip percentage columns initially, we'll calculate them after
+                totals[column] = None
             else:
                 totals[column] = df[column].sum()
         elif column == "FSR":
             totals[column] = "KD Totals"
         else:
             totals[column] = ""
+    
+    # Create totals row without percentage columns
     totals_row = pd.DataFrame(totals, index=["KD Totals"])
-    return pd.concat([df, totals_row], ignore_index=True)
+    df_with_totals = pd.concat([df, totals_row], ignore_index=True)
+    
+    # Calculate percentages using totals
+    if '% Sales' in df.columns:
+        total_sales_actual = totals.get('Sales Actual', 0) or totals.get('Actual Sales', 0)
+        total_sales_target = totals.get('Sales Target', 0)
+        df_with_totals.loc[df_with_totals.index[-1], '% Sales'] = (
+            (total_sales_actual / total_sales_target * 100) if total_sales_target != 0 else 0
+        )
+    
+    if '% ECO' in df.columns:
+        total_eco_actual = totals.get('ECO Actual', 0)
+        total_eco_target = totals.get('ECO Target', 0)
+        df_with_totals.loc[df_with_totals.index[-1], '% ECO'] = (
+            (total_eco_actual / total_eco_target * 100) if total_eco_target != 0 else 0
+        )
+    
+    # Handle Canon-specific SKU report
+    if 'ECO %' in df.columns:
+        total_eco_actual = totals.get('ECO Actual', 0)
+        total_eco_target = totals.get('ECO Target', 0)
+        df_with_totals.loc[df_with_totals.index[-1], 'ECO %'] = (
+            (total_eco_actual / total_eco_target * 100) if total_eco_target != 0 else 0
+        )
+
+    return df_with_totals
 
 def process_canon(file_path, company, df):
     """
