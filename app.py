@@ -354,31 +354,16 @@ COMPANIES = {
 
 def add_totals_row(df):
     totals = {}
-    numeric_columns = [col for col in df.columns if pd.api.types.is_numeric_dtype(df[col])]
-    
-    # Step 1: Compute sums for all numeric columns
-    for column in numeric_columns:
-        totals[column] = df[column].sum()
-    
-    # Step 2: Handle non-numeric columns
     for column in df.columns:
-        if column not in numeric_columns:
-            if column == "FSR":
-                totals[column] = "KD Totals"
+        if pd.api.types.is_numeric_dtype(df[column]):
+            if column.startswith('%'):
+                totals[column] = df[column].mean()
             else:
-                totals[column] = ""
-    
-    # Step 3: Recalculate percentage columns based on totals
-    if 'Sales Actual' in totals and 'Sales Target' in totals and totals['Sales Target'] != 0:
-        totals['% Sales'] = (totals['Sales Actual'] / totals['Sales Target']) * 100
-    if 'ECO Actual' in totals and 'ECO Target' in totals and totals['ECO Target'] != 0:
-        totals['% ECO'] = (totals['ECO Actual'] / totals['ECO Target']) * 100
-    if 'Actual Sales' in totals and 'Sales Target' in totals and totals['Sales Target'] != 0:  # For Jumra sub-company reports
-        totals['% Sales'] = (totals['Actual Sales'] / totals['Sales Target']) * 100
-    if 'ECO %' in totals:  # For SKU reports in Canon
-        if 'ECO Actual' in totals and 'ECO Target' in totals and totals['ECO Target'] != 0:
-            totals['ECO %'] = (totals['ECO Actual'] / totals['ECO Target']) * 100
-
+                totals[column] = df[column].sum()
+        elif column == "FSR":
+            totals[column] = "KD Totals"
+        else:
+            totals[column] = ""
     totals_row = pd.DataFrame(totals, index=["KD Totals"])
     return pd.concat([df, totals_row], ignore_index=True)
 
