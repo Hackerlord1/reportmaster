@@ -55,6 +55,12 @@
             border-bottom: 2px solid #6a11cb;
             padding-bottom: 10px;
         }
+        .report h3 {
+            color: #2c3e50;
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
         .table {
             margin-top: 15px;
             width: 100%;
@@ -95,9 +101,12 @@
             border-radius: 5px;
             font-weight: 500;
             transition: background-color 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
         }
         .btn-download:hover {
             background-color: #2575fc;
+            color: #fff;
         }
         .footer {
             text-align: center;
@@ -118,7 +127,7 @@
         }
         .table-striped tbody tr:last-child {
             background-color: rgba(226, 156, 59, 0.818) !important;
-            font-weight: italic;
+            font-style: italic;
         }
         .eco-container {
             display: flex;
@@ -165,76 +174,71 @@
         <!-- Header Section -->
         <div class="header">
             <h1>{{ company }} Sales Report</h1>
-            <p>{{ date_range }}</p>
+            
+            <p>Generated on: {{ today_date }}</p>
         </div>
 
-        <!-- Consolidated Download Button -->
+        <!-- Download Buttons -->
         <div class="text-center mb-4">
             <a href="{{ url_for('download_consolidated', company=company, filename=download_filename) }}" class="btn btn-download">
-                Download All Reports
+                Download Consolidated Report
+            </a>
+            <a href="{{ url_for('download_original', company=company) }}" class="btn btn-download" style="margin-left: 10px;">
+                Download Original File ({{ original_filename }})
             </a>
         </div>
 
         <!-- General Sales Report -->
         <div class="report">
             <h2> {{ company }} General Sales Report</h2>
-            <p>{{ date_range }}</p>
-            {{ sales_report.replace('Walkin  Sales', 'KHETIAS') | safe }}
+        
+            {% if sales_report %}
+                {{ sales_report | safe }}
+            {% else %}
+                <p class="no-data">No sales data available.</p>
+            {% endif %}
         </div>
 
         <!-- Brand ECO Reports -->
         <h2 class="mt-5">{{ company }} Brand ECO Reports</h2>
-        <p>{{ date_range }}</p>
+        
         <div class="eco-container">
             {% for brand, report in brand_reports.items() %}
                 {% if report is not none %}
                     <div class="report">
-                        <h3>{{ brand }} ECO Report</h3>
-                        {{ report.replace('Walkin  Sales', 'KHETIAS') | safe }}
+                        <h3>
+                            {% if brand == 'DETTOL_SOAP_90G' %}
+                                Dettol Soap 90g Variants ECO Report
+                            {% elif brand == 'MORTEIN_DOOM_100ML' %}
+                                Mortein Doom 100ml ECO Report
+                            {% elif brand == 'DETTOL' %}
+                                Dettol Soap ECO Report
+                            {% elif brand == 'MORTEIN' %}
+                                Mortein Doom ECO Report
+                            {% else %}
+                                {{ brand }} ECO Report
+                            {% endif %}
+                        </h3>
+                        {{ report | safe }}
                     </div>
                 {% else %}
                     <div class="report">
-                        <h3>{{ brand }} ECO Report</h3>
+                        <h3>
+                            {% if brand == 'DETTOL_SOAP_90G' %}
+                                Dettol Soap 90g Variants ECO Report
+                            {% elif brand == 'MORTEIN_DOOM_100ML' %}
+                                Mortein Doom 100ml ECO Report
+                            {% elif brand == 'DETTOL' %}
+                                Dettol Soap ECO Report
+                            {% elif brand == 'MORTEIN' %}
+                                Mortein Doom ECO Report
+                            {% elif brand == 'HARPIC_100ML' %}
+                                Harpic 100ml ECO Report
+                            {% else %}
+                                {{ brand }} ECO Report
+                            {% endif %}
+                        </h3>
                         <p class="no-data">No data available for {{ brand }}.</p>
-                    </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-
-        <!-- SKU ECO Reports with Renamed Titles -->
-        <h2 class="mt-5">{{ company }} SKU ECO Reports</h2>
-        <p>{{ date_range }}</p>
-        <div class="eco-container">
-            {% for sku, report in sku_eco_reports.items() %}
-                {% if report is not none %}
-                    <div class="report">
-                        <h3>
-                            {% if sku == 'FGWHHMG0N01' %}
-                            MEGA G. HAIR & SCALP FOOD 100ML
-                            {% elif sku == 'FGWHHMG0N02' %}
-                            MEGA G. HAIR & SCALP FOOD 250ML
-                            {% elif sku == 'FGWHTRMG0003' %}
-                            MEGAGROWTH DAILY LEAV-IN STR.(BREAK-FREE) 100ML
-                            {% else %}
-                                {{ sku }} ECO Report
-                            {% endif %}
-                        </h3>
-                        {{ report.replace('Walkin  Sales', 'KHETIAS') | safe }}
-                    </div>
-                {% else %}
-                    <div class="report">
-                        <h3>
-                            {% if sku == 'FGWHHMG0N01' %}
-                            MEGA G. HAIR & SCALP FOOD 100ML
-                            {% elif sku == 'FGWHHMG0N02' %}
-                            MEGA G. HAIR & SCALP FOOD 250ML
-                            {% elif sku == 'FGWHTRMG0003' %}
-                            MEGAGROWTH DAILY LEAV-IN STR.(BREAK-FREE) 100ML
-                            {% else %}
-                                {{ sku }} ECO Report
-                            {% endif %}
-                        </h3>
-                        <p class="no-data">No data available for this SKU.</p>
                     </div>
                 {% endif %}
             {% endfor %}

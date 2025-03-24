@@ -15,6 +15,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
         .container {
             max-width: 1000px;
@@ -24,6 +25,8 @@
             padding: 30px;
             margin: 20px;
             transition: transform 0.3s ease;
+            position: relative;
+            z-index: 1;
         }
         .container:hover {
             transform: translateY(-5px);
@@ -87,6 +90,38 @@
         .mb-3 {
             margin-bottom: 20px !important;
         }
+        
+        /* Loading overlay styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loading-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.25em;
+        }
+        .loading-text {
+            margin-top: 15px;
+            font-weight: 500;
+            color: #333;
+        }
+        
         @media (max-width: 576px) {
             .container {
                 padding: 20px;
@@ -99,6 +134,10 @@
                 width: 100%;
                 padding: 10px;
             }
+            .loading-content {
+                width: 90%;
+                padding: 20px;
+            }
         }
     </style>
 </head>
@@ -106,9 +145,9 @@
     <div class="container mt-5">
         <h1 class="text-center">Upload Sales Data</h1>
         <div class="instructions">
-            <p>Works on Canon and Jumra! Optionally upload a template to populate with data.</p>
+            <p>Works on Canon, Jumra, and Reckit! Optionally upload a template to populate with data. Use .xlsx for Canon/Jumra, .csv for Reckit.</p>
         </div>
-        <form method="post" enctype="multipart/form-data" class="mt-4">
+        <form method="post" enctype="multipart/form-data" class="mt-4" id="uploadForm">
             <div class="mb-3">
                 <label for="company" class="form-label">Select Company</label>
                 <select class="form-select" id="company" name="company" required>
@@ -117,20 +156,71 @@
                     <option value="Canon Eldoret">Canon Eldoret</option>
                     <option value="Jumra">Jumra Nakuru</option>
                     <option value="Jumra Eldoret">Jumra Eldoret</option>
+                    <option value="Reckit">Reckit</option>
                 </select>
             </div>
             <div class="mb-3">
                 <label for="file" class="form-label">Upload Data File</label>
-                <input type="file" class="form-control" id="file" name="file" accept=".xlsx" required>
+                <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv" required>
             </div>
             <div class="mb-3">
                 <label for="template" class="form-label">Upload Template File (Optional)</label>
                 <input type="file" class="form-control" id="template" name="template" accept=".xlsx">
             </div>
             <div class="text-center">
-                <button type="submit" class="btn btn-primary">Upload and Generate Reports</button>
+                <button type="submit" class="btn btn-primary" id="submitBtn">Upload and Generate Reports</button>
             </div>
         </form>
     </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="loading-text">Processing your file, please wait...</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(e) {
+            // Show loading overlay
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            // Disable submit button to prevent multiple submissions
+            document.getElementById('submitBtn').disabled = true;
+            
+            // File validation based on selected company
+            const company = document.getElementById('company').value;
+            const fileInput = document.getElementById('file');
+            const fileName = fileInput.value.toLowerCase();
+
+            if (company === 'Reckit') {
+                if (!fileName.endsWith('.csv')) {
+                    alert('Please upload a CSV file (.csv) for Reckit');
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
+                    e.preventDefault();
+                    return false;
+                }
+            } else {
+                if (!fileName.endsWith('.xlsx')) {
+                    alert('Please upload an Excel file (.xlsx) for Canon or Jumra');
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
+                    e.preventDefault();
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+
+        // Re-enable button if form submission fails (fallback)
+        window.addEventListener('pageshow', function() {
+            document.getElementById('submitBtn').disabled = false;
+            document.getElementById('loadingOverlay').style.display = 'none';
+        });
+    </script>
 </body>
 </html>

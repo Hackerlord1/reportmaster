@@ -1,15 +1,16 @@
 from flask import Flask, render_template, request, send_file, session
 from openpyxl.styles import Font, PatternFill, numbers
-from openpyxl.styles import numbers
 import pandas as pd
 import os
 from datetime import datetime
 import io
 import logging
 
+
 # Set up logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'  # Replace with a secure key
@@ -350,70 +351,198 @@ COMPANIES = {
             },
         },
     },
+    'Reckit': {
+        'fsr_sales_targets': {
+            'SHA1000': 1500000,
+            'SHA1001': 1800000,
+            'SHA1002': 1200000,
+            'SHA1003': 2000000,
+            'SHA1004': 2000000,
+            'SHA1005': 2000000,
+            'SHA1006': 2000000,
+            'SHA1007': 2000000,
+
+        },
+        'unit_targets': {
+            'SHA1000': 'Whsle',
+            'SHA1001': 'Retail',
+            'SHA1002': 'Retail',
+            'SHA1003': 'Retail',
+            'SHA1004': 'Retail',
+            'SHA1005': 'Retail',
+            'SHA1006': 'Retail',
+            'SHA1007': 'Retail',
+        },
+        'eco_targets': {
+            'SHA1000': 75,
+            'SHA1001': 200,
+            'SHA1002': 200,
+            'SHA1003': 200,
+            'SHA1004': 200,
+            'SHA1005': 200,
+            'SHA1006': 200,
+            'SHA1007': 200,
+        },
+        'fsr_representatives': {  # New mapping of FSR codes to representative names
+            'SHA1000': 'Fidel Nzwili',
+            'SHA1001': 'Elsie Ngugi',
+            'SHA1002': 'Enock Joseph',
+            'SHA1003': 'Elizabeth Kamau',
+            'SHA1004': 'Joshua Kimani',
+            'SHA1005': 'Moses Bwire',
+            'SHA1006': 'Emmanuel Ngetich',
+            'SHA1007': 'Jacqueline Bett',
+        },
+        'brand_targets': {
+            'DETTOL': {
+                'SHA1000': 172,
+                'SHA1001': 172,
+                'SHA1002': 172,
+                'SHA1003': 172,
+                'SHA1004': 172,
+                'SHA1005': 172,
+                'SHA1006': 172,
+                'SHA1007': 172,
+            },
+            'HARPIC': {
+                'SHA1000': 150,
+                'SHA1001': 150,
+                'SHA1002': 150,
+                'SHA1003': 150,
+                'SHA1004': 150,
+                'SHA1005': 150,
+                'SHA1006': 150,
+                'SHA1007': 150,
+            },
+            'AIRWICK': {
+                'SHA1000': 30,
+                'SHA1001': 30,
+                'SHA1002': 30,
+                'SHA1003': 30,
+                'SHA1004': 30,
+                'SHA1005': 30,
+                'SHA1006': 30,
+                'SHA1007': 30,
+
+            },
+            'DETTOL_SOAP_90G': {  # New entry for Dettol Soap 90g variants
+                'SHA1000': 100,    # Example targets; adjust as needed
+                'SHA1001': 100,
+                'SHA1002': 100,
+                'SHA1003': 100,
+                'SHA1004': 100,
+                'SHA1005': 100,
+                'SHA1006': 100,
+                'SHA1007': 100,
+            },
+            'HARPIC_100ML': {  # New entry for Harpic 100ml (SKU 3286535)
+                'SHA1000': 58,  # Example targets; adjust as needed
+                'SHA1001': 58,
+                'SHA1002': 58,
+                'SHA1003': 58,
+                'SHA1004': 58,
+                'SHA1005': 58,
+                'SHA1006': 58,
+                'SHA1007': 58,
+            },
+            'JIK': {  # New entry for all Jik SKUs
+                'SHA1000': 172,  # Example targets; adjust as needed
+                'SHA1001': 172,
+                'SHA1002': 172,
+                'SHA1003': 172,
+                'SHA1004': 172,
+                'SHA1005': 172,
+                'SHA1006': 172,
+                'SHA1007': 172,
+            },
+            'MORTEIN_DOOM_100ML': {  # New entry for SKU 349130
+                'SHA1000': 60,   # Example targets; adjust as needed
+                'SHA1001': 60,
+                'SHA1002': 60,
+                'SHA1003': 60,
+                'SHA1004': 60,
+                'SHA1005': 60,
+                'SHA1006': 60,
+                'SHA1007': 60,
+            },
+            'MORTEIN': {  # New entry for all Mortein Doom products
+                'SHA1000': 65,  # Example targets; adjust as needed
+                'SHA1001': 65,
+                'SHA1002': 65,
+                'SHA1003': 65,
+                'SHA1004': 65,
+                'SHA1005': 65,
+                'SHA1006': 65,
+                'SHA1007': 65,
+            },
+            
+             
+        },
+    },
 }
 
 def add_totals_row(df):
-    totals = {}
-    for column in df.columns:
-        if pd.api.types.is_numeric_dtype(df[column]):
-            if column.startswith('%'):
-                # Skip percentage columns initially, we'll calculate them after
-                totals[column] = None
+    try:
+        logger.info(f"Adding totals row to DataFrame with columns: {list(df.columns)}")
+        logger.info(f"DataFrame shape before adding totals: {df.shape}")
+
+        if df.empty:
+            logger.warning("DataFrame is empty; cannot add totals row.")
+            return df
+
+        # Identify numeric columns
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        logger.info(f"Numeric columns: {list(numeric_cols)}")
+
+        # Calculate totals for numeric columns
+        totals = df[numeric_cols].sum()
+        totals_row = pd.DataFrame([totals], columns=numeric_cols)
+
+        # Specifically recalculate % Sales and % ECO for the totals row
+        if 'Sales Actual' in totals_row.columns and 'Sales Target' in totals_row.columns:
+            sales_actual = totals_row['Sales Actual'].iloc[0]
+            sales_target = totals_row['Sales Target'].iloc[0]
+            totals_row['% Sales'] = (sales_actual / sales_target * 100) if sales_target != 0 else 0
+
+        if 'ECO Actual' in totals_row.columns and 'ECO Target' in totals_row.columns:
+            eco_actual = totals_row['ECO Actual'].iloc[0]
+            eco_target = totals_row['ECO Target'].iloc[0]
+            if '% ECO' in df.columns:
+                totals_row['% ECO'] = (eco_actual / eco_target * 100) if eco_target != 0 else 0
+            elif 'ECO %' in df.columns:
+                totals_row['ECO %'] = (eco_actual / eco_target * 100) if eco_target != 0 else 0
+
+        # Add non-numeric columns
+        non_numeric_cols = df.select_dtypes(exclude=['number']).columns
+        logger.info(f"Non-numeric columns: {list(non_numeric_cols)}")
+        for col in non_numeric_cols:
+            if col in ['FSR', 'Representative']:
+                totals_row[col] = 'KD Totals'
             else:
-                totals[column] = df[column].sum()
-        elif column == "FSR":
-            totals[column] = "KD Totals"
-        else:
-            totals[column] = ""
-    
-    # Create totals row without percentage columns
-    totals_row = pd.DataFrame(totals, index=["KD Totals"])
-    df_with_totals = pd.concat([df, totals_row], ignore_index=True)
-    
-    # Calculate percentages using totals
-    if '% Sales' in df.columns:
-        total_sales_actual = totals.get('Sales Actual', 0) or totals.get('Actual Sales', 0)
-        total_sales_target = totals.get('Sales Target', 0)
-        df_with_totals.loc[df_with_totals.index[-1], '% Sales'] = (
-            (total_sales_actual / total_sales_target * 100) if total_sales_target != 0 else 0
-        )
-    
-    if '% ECO' in df.columns:
-        total_eco_actual = totals.get('ECO Actual', 0)
-        total_eco_target = totals.get('ECO Target', 0)
-        df_with_totals.loc[df_with_totals.index[-1], '% ECO'] = (
-            (total_eco_actual / total_eco_target * 100) if total_eco_target != 0 else 0
-        )
-    
-    # Handle Canon-specific SKU report
-    if 'ECO %' in df.columns:
-        total_eco_actual = totals.get('ECO Actual', 0)
-        total_eco_target = totals.get('ECO Target', 0)
-        df_with_totals.loc[df_with_totals.index[-1], 'ECO %'] = (
-            (total_eco_actual / total_eco_target * 100) if total_eco_target != 0 else 0
-        )
+                totals_row[col] = ''
 
-    return df_with_totals
+        # Reorder columns to match the original DataFrame
+        totals_row = totals_row[df.columns]
+        logger.info(f"Totals row created: {totals_row.to_dict()}")
 
+        # Append the totals row to the DataFrame
+        df = pd.concat([df, totals_row], ignore_index=True)
+        logger.info(f"DataFrame shape after adding totals: {df.shape}")
+
+        return df
+
+    except Exception as e:
+        logger.error(f"Error adding totals row: {e}")
+        return df
+    
 def process_canon(file_path, company, df):
-    """
-    Process Canon sales data from an Excel file and generate sales, brand, and SKU reports.
-    
-    Args:
-        file_path (str): Path to the uploaded Excel file (kept for compatibility)
-        company (str): Company name ('Canon' or 'Canon Eldoret')
-        df (pd.DataFrame): Preloaded DataFrame with data starting from the second row
-    
-    Returns:
-        tuple: (sales_report, brand_reports, sku_eco_reports)
-    """
     try:
         df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
         df['Brand'] = df['Brand'].astype(str).str.strip().str.upper()
 
         company_config = COMPANIES[company]
 
-        # 1. General Sales Report
+        # General Sales Report
         sales_report = df.groupby('FSR', as_index=False).agg({
             'Amount': 'sum',
             'Customer': pd.Series.nunique
@@ -441,7 +570,7 @@ def process_canon(file_path, company, df):
         sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce')
         sales_report = add_totals_row(sales_report)
 
-        # 2. Brand ECO Reports
+        # Brand ECO Reports
         brand_reports = {}
         brand_targets = company_config.get('brand_targets', {})
         sku_list = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
@@ -464,7 +593,7 @@ def process_canon(file_path, company, df):
                 eco_report = add_totals_row(eco_report)
                 brand_reports[brand] = eco_report
 
-        # 3. SKU ECO Reports
+        # SKU ECO Reports
         sku_eco_reports = {}
         specific_skus = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
         for sku in specific_skus:
@@ -482,7 +611,6 @@ def process_canon(file_path, company, df):
                 lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
             )
             eco_report['ECO %'] = pd.to_numeric(eco_report['ECO %'], errors='coerce')
-            # Explicitly select desired columns to avoid extras
             eco_report = eco_report[['FSR', 'ECO Target', 'ECO Actual', 'ECO Balance', 'ECO %']]
             eco_report = add_totals_row(eco_report)
             sku_eco_reports[sku] = eco_report
@@ -494,17 +622,6 @@ def process_canon(file_path, company, df):
         raise ValueError(f"Error processing the {company} file: {e}")
 
 def process_jumra(file_path, company, df):
-    """
-    Process Jumra sales data from an Excel file and generate sales, sub-company, and ECO reports.
-    
-    Args:
-        file_path (str): Path to the uploaded Excel file (kept for compatibility)
-        company (str): Company name ('Jumra' or 'Jumra Eldoret')
-        df (pd.DataFrame): Preloaded DataFrame with data starting from the second row
-    
-    Returns:
-        tuple: (sales_report, sub_company_reports, eco_reports)
-    """
     try:
         df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
         df['Brand'] = df['Brand'].astype(str).str.strip().str.upper()
@@ -625,13 +742,190 @@ def process_jumra(file_path, company, df):
         logger.error(f"Error processing {company} file: {e}")
         raise ValueError(f"Error processing the {company} file: {e}")
 
-def process_excel(file_path, company):
-    # Read the first row to extract the date range
-    date_range_df = pd.read_excel(file_path, nrows=1, header=None)
-    date_range = date_range_df.iloc[0, 0]  # Assuming "From: ... To: ..." is in the first column
+def process_reckit(file_path, company, df):
+    try:
+        # Rename columns to match internal format
+        df = df.rename(columns={
+            'Route Code': 'FSR',
+            'Total Net Amount': 'Amount',
+            'Customer Code': 'Customer',
+            'Product Description': 'Brand',
+            'Product Code': 'SKU_Code'
+        })
+        
+        df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
+        df['Brand'] = df['Brand'].astype(str).str.strip().str.upper()
 
-    # Read the actual data, skipping the first row and using the second row as header
-    df = pd.read_excel(file_path, skiprows=1)  # Skip the first row, second row becomes header
+        company_config = COMPANIES[company]
+        fsr_reps = company_config.get('fsr_representatives', {})
+
+        # General Sales and ECO Report per Route Code
+        sales_report = df.groupby('FSR', as_index=False).agg({
+            'Amount': 'sum',
+            'Customer': pd.Series.nunique
+        })
+        sales_report.rename(columns={'Amount': 'Sales Actual', 'Customer': 'ECO Actual'}, inplace=True)
+
+        sales_report['Sales Target'] = sales_report['FSR'].map(company_config['fsr_sales_targets']).fillna(0)
+        sales_report['Unit'] = sales_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
+        sales_report['ECO Target'] = sales_report['FSR'].map(company_config['eco_targets']).fillna(0)
+        sales_report['Sales Balance'] = sales_report['Sales Actual'] - sales_report['Sales Target']
+        sales_report['% Sales'] = sales_report.apply(
+            lambda row: (row['Sales Actual'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+        )
+        sales_report['ECO Balance'] = sales_report['ECO Actual'] - sales_report['ECO Target']
+        sales_report['% ECO'] = sales_report.apply(
+            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+        )
+
+        # Replace FSR with representative name and rename the column
+        sales_report['FSR'] = sales_report['FSR'].apply(
+            lambda x: fsr_reps.get(x, 'Unknown') if x in fsr_reps else x
+        )
+        sales_report.rename(columns={'FSR': 'Representative'}, inplace=True)
+
+        sales_report = sales_report[[
+            'Representative', 'Unit', 'Sales Target', 'Sales Actual', 'Sales Balance', '% Sales',
+            'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
+        ]]
+        sales_report['% Sales'] = pd.to_numeric(sales_report['% Sales'], errors='coerce')
+        sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce')
+        sales_report = add_totals_row(sales_report)
+
+        # Brand ECO Reports per Route Code
+        brand_reports = {}
+        brand_targets = company_config.get('brand_targets', {})
+        standard_brands = ['DETTOL', 'HARPIC', 'AIRWICK', 'JIK', 'MORTEIN']
+        for brand in standard_brands:
+            if brand == 'DETTOL':
+                brand_df = df[df['Brand'].str.contains('DETTOL SOAP', case=False, na=False)]
+            elif brand == 'MORTEIN':
+                brand_df = df[df['Brand'].str.contains('MORTEIN DOOM', case=False, na=False)]
+            else:
+                brand_df = df[df['Brand'].str.contains(brand, case=False, na=False)]
+            eco_report = pd.DataFrame({'FSR': list(brand_targets[brand].keys())})
+            if not brand_df.empty:
+                actuals = brand_df.groupby('FSR', as_index=False).agg({'Customer': pd.Series.nunique})
+                eco_report = eco_report.merge(actuals, on='FSR', how='left').fillna({'Customer': 0})
+            else:
+                eco_report['Customer'] = 0
+            eco_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
+            eco_report['ECO Target'] = eco_report['FSR'].map(brand_targets.get(brand, {})).fillna(0)
+            eco_report['ECO Balance'] = eco_report['ECO Actual'] - eco_report['ECO Target']
+            eco_report['% ECO'] = eco_report.apply(
+                lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+            )
+            # Replace FSR with representative name and rename the column
+            eco_report['FSR'] = eco_report['FSR'].apply(
+                lambda x: fsr_reps.get(x, 'Unknown') if x in fsr_reps else x
+            )
+            eco_report.rename(columns={'FSR': 'Representative'}, inplace=True)
+            eco_report['% ECO'] = pd.to_numeric(eco_report['% ECO'], errors='coerce')
+            eco_report = add_totals_row(eco_report)
+            brand_reports[brand] = eco_report
+
+        # Specific ECO Tracking for Dettol Soap 90g Variants
+        dettol_soap_90g_codes = [
+            '3325468', '366184', '8149556', '3244641', '366195', 
+            '3244643', '366159', '8149555', '3244645', '366177', '3244644','3298961'
+        ]
+        dettol_soap_df = df[df['SKU_Code'].isin(dettol_soap_90g_codes)]
+        dettol_soap_90g_report = pd.DataFrame({'FSR': list(brand_targets['DETTOL_SOAP_90G'].keys())})
+        if not dettol_soap_df.empty:
+            dettol_actuals = dettol_soap_df.groupby('FSR', as_index=False).agg({'Customer': pd.Series.nunique})
+            dettol_soap_90g_report = dettol_soap_90g_report.merge(dettol_actuals, on='FSR', how='left').fillna({'Customer': 0})
+        else:
+            dettol_soap_90g_report['Customer'] = 0
+        dettol_soap_90g_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
+        dettol_soap_90g_report['ECO Target'] = dettol_soap_90g_report['FSR'].map(brand_targets['DETTOL_SOAP_90G']).fillna(0)
+        dettol_soap_90g_report['ECO Balance'] = dettol_soap_90g_report['ECO Actual'] - dettol_soap_90g_report['ECO Target']
+        dettol_soap_90g_report['% ECO'] = dettol_soap_90g_report.apply(
+            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+        )
+        # Replace FSR with representative name and rename the column
+        dettol_soap_90g_report['FSR'] = dettol_soap_90g_report['FSR'].apply(
+            lambda x: fsr_reps.get(x, 'Unknown') if x in fsr_reps else x
+        )
+        dettol_soap_90g_report.rename(columns={'FSR': 'Representative'}, inplace=True)
+        dettol_soap_90g_report['% ECO'] = pd.to_numeric(dettol_soap_90g_report['% ECO'], errors='coerce')
+        dettol_soap_90g_report = add_totals_row(dettol_soap_90g_report)
+        brand_reports['DETTOL_SOAP_90G'] = dettol_soap_90g_report
+
+        # Specific ECO Tracking for Mortein Doom 100ml (SKU 349130)
+        mortein_doom_100ml_code = ['349130']
+        mortein_doom_df = df[df['SKU_Code'].isin(mortein_doom_100ml_code)]
+        mortein_doom_100ml_report = pd.DataFrame({'FSR': list(brand_targets['MORTEIN_DOOM_100ML'].keys())})
+        if not mortein_doom_df.empty:
+            mortein_actuals = mortein_doom_df.groupby('FSR', as_index=False).agg({'Customer': pd.Series.nunique})
+            mortein_doom_100ml_report = mortein_doom_100ml_report.merge(mortein_actuals, on='FSR', how='left').fillna({'Customer': 0})
+        else:
+            mortein_doom_100ml_report['Customer'] = 0
+        mortein_doom_100ml_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
+        mortein_doom_100ml_report['ECO Target'] = mortein_doom_100ml_report['FSR'].map(brand_targets['MORTEIN_DOOM_100ML']).fillna(0)
+        mortein_doom_100ml_report['ECO Balance'] = mortein_doom_100ml_report['ECO Actual'] - mortein_doom_100ml_report['ECO Target']
+        mortein_doom_100ml_report['% ECO'] = mortein_doom_100ml_report.apply(
+            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+        )
+        # Replace FSR with representative name and rename the column
+        mortein_doom_100ml_report['FSR'] = mortein_doom_100ml_report['FSR'].apply(
+            lambda x: fsr_reps.get(x, 'Unknown') if x in fsr_reps else x
+        )
+        mortein_doom_100ml_report.rename(columns={'FSR': 'Representative'}, inplace=True)
+        mortein_doom_100ml_report['% ECO'] = pd.to_numeric(mortein_doom_100ml_report['% ECO'], errors='coerce')
+        mortein_doom_100ml_report = add_totals_row(mortein_doom_100ml_report)
+        brand_reports['MORTEIN_DOOM_100ML'] = mortein_doom_100ml_report
+
+        # Specific ECO Tracking for Harpic 100ml (Placeholder SKU 123456)
+        harpic_100ml_code = ['123456']  # Replace with actual SKU for Harpic 100ml
+        logger.info(f"Filtering Harpic 100ml with SKU: {harpic_100ml_code}")
+        harpic_100ml_df = df[df['SKU_Code'].isin(harpic_100ml_code)]
+        logger.info(f"Harpic 100ml DataFrame size: {len(harpic_100ml_df)} rows")
+        if not harpic_100ml_df.empty:
+            logger.info(f"Harpic 100ml data found: {harpic_100ml_df[['SKU_Code', 'Brand', 'FSR']].head().to_dict()}")
+        harpic_100ml_report = pd.DataFrame({'FSR': list(brand_targets['HARPIC_100ML'].keys())})
+        if not harpic_100ml_df.empty:
+            harpic_actuals = harpic_100ml_df.groupby('FSR', as_index=False).agg({'Customer': pd.Series.nunique})
+            harpic_100ml_report = harpic_100ml_report.merge(harpic_actuals, on='FSR', how='left').fillna({'Customer': 0})
+        else:
+            harpic_100ml_report['Customer'] = 0
+        harpic_100ml_report.rename(columns={'Customer': 'ECO Actual'}, inplace=True)
+        harpic_100ml_report['ECO Target'] = harpic_100ml_report['FSR'].map(brand_targets['HARPIC_100ML']).fillna(0)
+        harpic_100ml_report['ECO Balance'] = harpic_100ml_report['ECO Actual'] - harpic_100ml_report['ECO Target']
+        harpic_100ml_report['% ECO'] = harpic_100ml_report.apply(
+            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+        )
+        # Replace FSR with representative name and rename the column
+        harpic_100ml_report['FSR'] = harpic_100ml_report['FSR'].apply(
+            lambda x: fsr_reps.get(x, 'Unknown') if x in fsr_reps else x
+        )
+        harpic_100ml_report.rename(columns={'FSR': 'Representative'}, inplace=True)
+        harpic_100ml_report['% ECO'] = pd.to_numeric(harpic_100ml_report['% ECO'], errors='coerce')
+        harpic_100ml_report = add_totals_row(harpic_100ml_report)
+        logger.info(f"Harpic 100ml Report generated: {harpic_100ml_report.to_dict()}")
+        brand_reports['HARPIC_100ML'] = harpic_100ml_report
+
+        return sales_report, brand_reports
+
+    except Exception as e:
+        logger.error(f"Error processing Reckit file: {e}")
+        raise ValueError(f"Error processing the Reckit file: {e}")
+    
+def process_file(file_path, company):
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    if file_extension == '.xlsx':
+        date_range_df = pd.read_excel(file_path, nrows=1, header=None)
+        date_range = date_range_df.iloc[0, 0]
+        df = pd.read_excel(file_path, skiprows=1)
+    elif file_extension == '.csv':
+        df = pd.read_csv(file_path)
+        current_date = datetime.today()
+        month_start = current_date.replace(day=1).strftime('%Y-%m-%d')
+        month_end = (current_date.replace(day=1, month=current_date.month % 12 + 1) - pd.Timedelta(days=1)).strftime('%Y-%m-%d')
+        date_range = f"From: {month_start} To: {month_end}"
+        df.columns = df.columns.str.strip()
+    else:
+        raise ValueError(f"Unsupported file type: {file_extension}")
 
     if company in ['Canon', 'Canon Eldoret']:
         sales_report, brand_reports, sku_eco_reports = process_canon(file_path, company, df)
@@ -639,73 +933,121 @@ def process_excel(file_path, company):
     elif company in ['Jumra', 'Jumra Eldoret']:
         sales_report, sub_company_reports, eco_reports = process_jumra(file_path, company, df)
         return sales_report, sub_company_reports, eco_reports, date_range
+    elif company == 'Reckit':
+        sales_report, brand_reports = process_reckit(file_path, company, df)
+        return sales_report, brand_reports, None, date_range
     else:
         raise ValueError(f"Invalid company: {company}")
 
 def create_consolidated_excel(company, file_path):
+    file_extension = os.path.splitext(file_path)[1].lower()
+    
+    if file_extension == '.xlsx':
+        df = pd.read_excel(file_path, skiprows=1)
+    elif file_extension == '.csv':
+        df = pd.read_csv(file_path)
+        if company == 'Reckit':
+            df = df.rename(columns={
+                'Route Code': 'FSR',
+                'Total Net Amount': 'Amount',
+                'Customer Code': 'Customer',
+                'Product Description': 'Brand',
+                'Product Code': 'SKU_Code'
+            })
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Read the Excel file, skipping the first row (date range), and use the second row as header
-        df = pd.read_excel(file_path, skiprows=1)
-        
-        # Create a single DataFrame to hold all consolidated data
-        consolidated_df = pd.DataFrame()
         start_row = 0
 
         if company in ['Canon', 'Canon Eldoret']:
             sales_report, brand_reports, sku_eco_reports = process_canon(file_path, company, df)
-            
-            # Add General Sales Report
+            # Adjust percentage columns for Excel
+            if '% Sales' in sales_report.columns:
+                sales_report['% Sales'] = sales_report['% Sales'] / 100
+            if '% ECO' in sales_report.columns:
+                sales_report['% ECO'] = sales_report['% ECO'] / 100
             sales_report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
-            start_row += len(sales_report) + 2  # Add 2 rows spacing
-            
-            # Add Brand Reports
+            start_row += len(sales_report) + 2
             for brand, report in brand_reports.items():
                 if report is not None and not report.empty:
-                    report.insert(0, 'Report Type', f"{brand} ECO")  # Add identifier column
+                    if '% ECO' in report.columns:
+                        report['% ECO'] = report['% ECO'] / 100
+                    report.insert(0, 'Report Type', f"{brand} ECO")
                     report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
-                    start_row += len(report) + 2  # Add 2 rows spacing
-            
-            # Add SKU Reports
+                    start_row += len(report) + 2
             for sku, report in sku_eco_reports.items():
                 if report is not None and not report.empty:
-                    report.insert(0, 'Report Type', f"{sku} ECO")  # Add identifier column
+                    if '% ECO' in report.columns:
+                        report['% ECO'] = report['% ECO'] / 100
+                    report.insert(0, 'Report Type', f"{sku} ECO")
                     report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
-                    start_row += len(report) + 2  # Add 2 rows spacing
-
+                    start_row += len(report) + 2
         elif company in ['Jumra', 'Jumra Eldoret']:
             sales_report, sub_company_reports, eco_reports = process_jumra(file_path, company, df)
-            
-            # Add General Sales Report
+            # Adjust percentage columns for Excel
+            if '% Sales' in sales_report.columns:
+                sales_report['% Sales'] = sales_report['% Sales'] / 100
+            if '% ECO' in sales_report.columns:
+                sales_report['% ECO'] = sales_report['% ECO'] / 100
             sales_report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
-            start_row += len(sales_report) + 2  # Add 2 rows spacing
-            
-            # Add Sub-Company Reports
+            start_row += len(sales_report) + 2
             for sub_company, report in sub_company_reports.items():
                 if report is not None and not report.empty:
-                    report.insert(0, 'Report Type', f"{sub_company} Sales")  # Add identifier column
+                    if '% Sales' in report.columns:
+                        report['% Sales'] = report['% Sales'] / 100
+                    if '% ECO' in report.columns:
+                        report['% ECO'] = report['% ECO'] / 100
+                    report.insert(0, 'Report Type', f"{sub_company} Sales")
                     report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
-                    start_row += len(report) + 2  # Add 2 rows spacing
-            
-            # Add ECO Reports
+                    start_row += len(report) + 2
             for brand, report in eco_reports.items():
                 if report is not None and not report.empty:
-                    report.insert(0, 'Report Type', f"{brand} ECO")  # Add identifier column
+                    if '% ECO' in report.columns:
+                        report['% ECO'] = report['% ECO'] / 100
+                    report.insert(0, 'Report Type', f"{brand} ECO")
                     report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
-                    start_row += len(report) + 2  # Add 2 rows spacing
+                    start_row += len(report) + 2
+        elif company == 'Reckit':
+            sales_report, brand_reports = process_reckit(file_path, company, df)
+            # Adjust percentage columns for Excel
+            if '% Sales' in sales_report.columns:
+                sales_report['% Sales'] = sales_report['% Sales'] / 100
+            if '% ECO' in sales_report.columns:
+                sales_report['% ECO'] = sales_report['% ECO'] / 100
+            sales_report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+            start_row += len(sales_report) + 2
+            for brand, report in brand_reports.items():
+                if report is not None and not report.empty:
+                    if '% ECO' in report.columns:
+                        report['% ECO'] = report['% ECO'] / 100
+                    if '% Sales' in report.columns:
+                        report['% Sales'] = report['% Sales'] / 100
+                    if brand == 'DETTOL_SOAP_90G':
+                        report_type = "DETTOL SOAP 90G ECO"
+                    elif brand == 'MORTEIN_DOOM_100ML':
+                        report_type = "MORTEIN DOOM 100ML ECO"
+                    elif brand == 'HARPIC_100ML':
+                        report_type = "HARPIC 100ML ECO"
+                    elif brand == 'DETTOL':
+                        report_type = "DETTOL SOAP ECO"
+                    elif brand == 'MORTEIN':
+                        report_type = "MORTEIN DOOM ECO"
+                    else:
+                        report_type = f"{brand} ECO"
+                    report.insert(0, 'Report Type', report_type)
+                    report.to_excel(writer, sheet_name='Consolidated Report', startrow=start_row, index=False)
+                    start_row += len(report) + 2
 
-        # Apply formatting to the entire sheet
+        # Apply formatting to the Excel sheet
         sheet = writer.sheets['Consolidated Report']
         for col in sheet.columns:
             col_letter = col[0].column_letter
-            col_idx = col[0].column - 1
-            # Since we're now using one sheet, we need to get the column name from the DataFrame headers
-            # We'll apply formatting based on common column names across all reports
-            for cell in col:
-                cell_value = cell.value
-                if isinstance(cell_value, str) and any(x in cell_value for x in ['Target', 'Actual', 'Balance']):
+            header = col[0].value  # Get the column header
+            # Apply number formatting based on column header
+            for cell in col[1:]:  # Skip the header row
+                if header in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
                     cell.number_format = '#,##0.00'
-                elif isinstance(cell_value, str) and any(x in cell_value for x in ['%', 'ECO %']):
+                elif header in ['% Sales', '% ECO']:
                     cell.number_format = '0.00%'
 
     output.seek(0)
@@ -713,30 +1055,35 @@ def create_consolidated_excel(company, file_path):
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+
+    logger.debug("Entering upload_file route")
     if request.method == 'POST':
+        logger.debug("POST request received")
         if 'file' not in request.files:
+            logger.error("No file part in request")
             return 'No file uploaded.', 400
 
         file = request.files['file']
         company = request.form.get('company')
+        logger.debug(f"Company selected: {company}, File: {file.filename}")
 
         if file.filename == '':
+            logger.error("No file selected")
             return 'No file selected.', 400
 
         if not company:
+            logger.error("No company selected")
             return 'No company selected.', 400
 
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(file_path)
         session['uploaded_file_path'] = file_path
+        logger.debug(f"File saved at: {file_path}")
 
         try:
-            reports_data = process_excel(file_path, company)
-            if company in ['Canon', 'Canon Eldoret']:
-                sales_report, brand_reports, sku_eco_reports, date_range = reports_data
-            elif company in ['Jumra', 'Jumra Eldoret']:
-                sales_report, sub_company_reports, eco_reports, date_range = reports_data
-
+            logger.debug("Processing file")
+            reports_data = process_file(file_path, company)
+            logger.debug(f"Reports data processed: {reports_data}")
             today_date = datetime.today().strftime('%Y-%m-%d')
 
             def format_percentage(val):
@@ -758,6 +1105,8 @@ def upload_file():
                 return val
 
             if company in ['Canon', 'Canon Eldoret']:
+                logger.debug("Processing Canon report")
+                sales_report, brand_reports, sku_eco_reports, date_range = reports_data
                 sales_report_html = sales_report.copy()
                 for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
                     sales_report_html[col] = sales_report_html[col].apply(format_number)
@@ -787,6 +1136,7 @@ def upload_file():
                         classes="table table-striped table-bordered", index=False, escape=False
                     )
 
+                logger.debug("Rendering Canon report")
                 return render_template(
                     "canon_report.html",
                     sales_report=html_table,
@@ -800,6 +1150,8 @@ def upload_file():
                 )
             
             elif company in ['Jumra', 'Jumra Eldoret']:
+                logger.debug("Processing Jumra report")
+                sales_report, sub_company_reports, eco_reports, date_range = reports_data
                 sales_report_html = sales_report.copy()
                 for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
                     sales_report_html[col] = sales_report_html[col].apply(format_number)
@@ -830,6 +1182,7 @@ def upload_file():
                         classes="table table-striped table-bordered", index=False, escape=False
                     )
 
+                logger.debug("Rendering Jumra report")
                 return render_template(
                     "jumra_report.html",
                     sales_report=html_table,
@@ -842,10 +1195,48 @@ def upload_file():
                     download_filename=f"{company}_consolidated_report.xlsx",
                     original_filename=file.filename
                 )
-        except Exception as e:
-            logger.error(f"Upload error: {e}")
-            return f'Error: {e}', 500
+            
+            elif company == 'Reckit':
+                logger.debug("Processing Reckit report")
+                sales_report, brand_reports, _, date_range = reports_data
+                logger.debug(f"Reckit sales_report: {sales_report.to_dict()}")
+                logger.debug(f"Reckit brand_reports: { {k: v.to_dict() for k, v in brand_reports.items()} }")
+                sales_report_html = sales_report.copy()
+                for col in ['Sales Target', 'Sales Actual', 'Sales Balance', 'ECO Target', 'ECO Actual', 'ECO Balance']:
+                    sales_report_html[col] = sales_report_html[col].apply(format_number)
+                for col in ['% Sales', '% ECO']:
+                    sales_report_html[col] = sales_report_html[col].apply(format_percentage)
+                html_table = sales_report_html.to_html(
+                    classes="table table-striped table-bordered", index=False, escape=False
+                )
 
+                brand_reports_html = {}
+                for brand, report in brand_reports.items():
+                    report_html = report.copy()
+                    for col in ['ECO Target', 'ECO Actual', 'ECO Balance']:
+                        report_html[col] = report_html[col].apply(format_number)
+                    report_html['% ECO'] = report_html['% ECO'].apply(format_percentage)
+                    brand_reports_html[brand] = report_html.to_html(
+                        classes="table table-striped table-bordered", index=False, escape=False
+                    )
+
+                logger.debug("Rendering Reckit report")
+                return render_template(
+                    "reckit_report.html",
+                    sales_report=html_table,
+                    brand_reports=brand_reports_html,
+                    today_date=today_date,
+                    date_range=date_range,
+                    company=company,
+                    download_filename=f"{company}_consolidated_report.csv",
+                    original_filename=file.filename
+                )
+
+        except Exception as e:
+            logger.error(f"Upload error: {str(e)}", exc_info=True)
+            return f'Error: {str(e)}', 500
+
+    logger.debug("Rendering upload.html")
     return render_template('upload.html')
 
 @app.route('/download_consolidated/<company>/<filename>')
@@ -870,9 +1261,10 @@ def download_original(company):
     file_path = session.get('uploaded_file_path')
     if file_path and os.path.exists(file_path):
         original_filename = os.path.basename(file_path)
+        mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if file_path.endswith('.xlsx') else 'text/csv'
         response = send_file(
             file_path,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            mimetype=mime_type,
             as_attachment=True,
             download_name=original_filename
         )
