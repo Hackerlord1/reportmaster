@@ -189,7 +189,7 @@
         <p>{{ date_range }}</p>
         {% for sub_company, report in sub_company_reports.items() %}
             <div class="report mt-4">
-                <h3>{{ sub_company }} Report</h3>
+                <h3>{{ sub_company }} Report</h3>{{ date_range }}
                 {% if report is not none %}
                     {{ report | safe }}
                 {% else %}
@@ -222,7 +222,7 @@
         <!-- Footer -->
         <div class="footer">
             <p>Designed by <a href="#">Heman</a>. © 2025 All rights reserved.</p>
-            <p>Your data is encrypted and never shared without your consent</p>
+            <p>Your data is encrypted</p>
         </div>
     </div>
 </body>

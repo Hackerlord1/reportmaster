@@ -127,7 +127,8 @@
         }
         .table-striped tbody tr:last-child {
             background-color: rgba(226, 156, 59, 0.818) !important;
-            font-style: italic;
+            font-style: normal;
+            font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
         }
         .eco-container {
             display: flex;
@@ -181,7 +182,7 @@
         <!-- Download Buttons -->
         <div class="text-center mb-4">
             <a href="{{ url_for('download_consolidated', company=company, filename=download_filename) }}" class="btn btn-download">
-                Download Consolidated Report
+                Download Full Consolidated Report
             </a>
             <a href="{{ url_for('download_original', company=company) }}" class="btn btn-download" style="margin-left: 10px;">
                 Download Original File ({{ original_filename }})
@@ -208,7 +209,7 @@
                     <div class="report">
                         <h3>
                             {% if brand == 'DETTOL_SOAP_90G' %}
-                                Dettol Soap 90g Variants ECO Report
+                                Dettol Soap 90g all Variants ECO Report
                             {% elif brand == 'MORTEIN_DOOM_100ML' %}
                                 Mortein Doom 100ml ECO Report
                             {% elif brand == 'DETTOL' %}
@@ -247,7 +248,7 @@
         <!-- Footer -->
         <div class="footer">
             <p>Designed by <a href="#">Heman</a>. © 2025 All rights reserved.</p>
-            <p>Your data is encrypted and never shared without your consent</p>
+            <p>Your data is encrypted</p>
         </div>
     </div>
 </body>

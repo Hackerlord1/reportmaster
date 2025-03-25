@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
+            background: linear-gradient(135deg, #b9d6f2, #d9e2ec);
             font-family: 'Poppins', sans-serif;
             color: #333;
             min-height: 100vh;
@@ -18,7 +18,7 @@
             position: relative;
         }
         .container {
-            max-width: 1000px;
+            max-width: 800px;
             background-color: #fff;
             border-radius: 15px;
             box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
@@ -66,7 +66,7 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: #6a11cb;
-            box-shadow: 0 0 5px rgba(106, 17, 203, 0.3);
+            box-shadow: 0 0 5px rgba(54, 203, 17, 0.3);
             outline: none;
         }
         .btn-primary {
@@ -158,20 +158,17 @@
                     <option value="Canon Eldoret">Canon Eldoret</option>
                     <option value="Jumra">Jumra Nakuru</option>
                     <option value="Jumra Eldoret">Jumra Eldoret</option>
-                    <option value="Reckit">Reckit</option>
+                    <option value="Reckit">Reckit Benckiser</option>
                 </select>
             </div>
             <div class="mb-3">
                 <label for="file" class="form-label">Upload Data File</label>
                 <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv" required>
             </div>
-            <div class="mb-3">
-                <label for="template" class="form-label">Upload Template File (Optional)</label>
-                <input type="file" class="form-control" id="template" name="template" accept=".xlsx">
-            </div>
+            
             <div class="text-center">
                 <button type="submit" class="btn btn-primary" id="submitBtn">Upload and Generate Reports</button>
-                <p>Your data is encrypted and never shared without your consent</p>
+                <p>Your data is encrypted</p>
             </div>
         </form>
     </div>
