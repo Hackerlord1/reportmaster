@@ -499,19 +499,24 @@ def add_totals_row(df):
         totals = df[numeric_cols].sum()
         totals_row = pd.DataFrame([totals], columns=numeric_cols)
 
-        # Specifically recalculate % Sales and % ECO for the totals row
-        if 'Sales Actual' in totals_row.columns and 'Sales Target' in totals_row.columns:
-            sales_actual = totals_row['Sales Actual'].iloc[0]
-            sales_target = totals_row['Sales Target'].iloc[0]
-            totals_row['% Sales'] = (sales_actual / sales_target * 100) if sales_target != 0 else 0
+        # Determine sales columns dynamically
+        sales_actual_col = 'Sales Actual' if 'Sales Actual' in totals_row.columns else 'Actual Sales'
+        sales_target_col = 'Sales Target'
 
+        # Recalculate % Sales for the totals row
+        if sales_actual_col in totals_row.columns and sales_target_col in totals_row.columns:
+            sales_actual = totals_row[sales_actual_col].iloc[0]
+            sales_target = totals_row[sales_target_col].iloc[0]
+            totals_row['% Sales'] = round((sales_actual / sales_target * 100), 2) if sales_target != 0 else 0
+
+        # Recalculate % ECO for the totals row
         if 'ECO Actual' in totals_row.columns and 'ECO Target' in totals_row.columns:
             eco_actual = totals_row['ECO Actual'].iloc[0]
             eco_target = totals_row['ECO Target'].iloc[0]
             if '% ECO' in df.columns:
-                totals_row['% ECO'] = (eco_actual / eco_target * 100) if eco_target != 0 else 0
+                totals_row['% ECO'] = round((eco_actual / eco_target * 100), 2) if eco_target != 0 else 0
             elif 'ECO %' in df.columns:
-                totals_row['ECO %'] = (eco_actual / eco_target * 100) if eco_target != 0 else 0
+                totals_row['ECO %'] = round((eco_actual / eco_target * 100), 2) if eco_target != 0 else 0
 
         # Add non-numeric columns
         non_numeric_cols = df.select_dtypes(exclude=['number']).columns
@@ -629,103 +634,146 @@ def process_canon(file_path, company, df):
 
 def process_jumra(file_path, company, df):
     try:
+        logger.debug(f"Input DataFrame columns for {company}: {list(df.columns)}")
+        
         df['SKU_Code'] = df['SKU_Code'].astype(str).str.strip().str.upper()
         df['Brand'] = df['Brand'].astype(str).str.strip().str.upper()
 
         company_config = COMPANIES[company]
 
-        # General Sales Report
-        # Use 'Total' for Jumra Eldoret, 'Amount' for others
         sales_column = 'Total' if company == 'Jumra Eldoret' else 'Amount'
-        if sales_column not in df.columns:
-            raise ValueError(f"Expected column '{sales_column}' not found in the data for {company}")
+        logger.debug(f"Selected sales column for {company}: {sales_column}")
 
+        if sales_column not in df.columns:
+            available_columns = ', '.join(df.columns)
+            logger.error(f"Column '{sales_column}' not found. Available columns: {available_columns}")
+            raise ValueError(f"Expected column '{sales_column}' not found in the data for {company}. Available columns: {available_columns}")
+
+        df[sales_column] = pd.to_numeric(df[sales_column], errors='coerce').fillna(0)
+        logger.debug(f"Sample {sales_column} values after conversion: {df[sales_column].head().tolist()}")
+
+        # General Sales Report (unchanged)
         sales_report = df.groupby('FSR', as_index=False).agg({
-            sales_column: 'sum',  # Use the dynamically selected column
+            sales_column: 'sum',
             'Customer': pd.Series.nunique
         })
         sales_report.rename(columns={sales_column: 'Sales Actual', 'Customer': 'ECO Actual'}, inplace=True)
-
-        sales_report['Sales Target'] = sales_report['FSR'].map(company_config['fsr_sales_targets']).fillna(0)
+        sales_report['Sales Target'] = pd.to_numeric(
+            sales_report['FSR'].map(company_config['fsr_sales_targets']).fillna(0), errors='coerce'
+        )
         sales_report['Unit'] = sales_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
-        sales_report['ECO Target'] = sales_report['FSR'].map(company_config['aer_fsr_targets']).fillna(0)
-
+        sales_report['ECO Target'] = pd.to_numeric(
+            sales_report['FSR'].map(company_config['aer_fsr_targets']).fillna(0), errors='coerce'
+        )
         sales_report['Sales Balance'] = sales_report['Sales Actual'] - sales_report['Sales Target']
         sales_report['% Sales'] = sales_report.apply(
-            lambda row: (row['Sales Actual'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+            lambda row: round((row['Sales Actual'] / row['Sales Target']) * 100, 2) if row['Sales Target'] != 0 else 0, axis=1
         )
         sales_report['ECO Balance'] = sales_report['ECO Actual'] - sales_report['ECO Target']
         sales_report['% ECO'] = sales_report.apply(
-            lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+            lambda row: round((row['ECO Actual'] / row['ECO Target']) * 100, 2) if row['ECO Target'] != 0 else 0, axis=1
         )
-
         sales_report = sales_report[[
             'FSR', 'Unit', 'Sales Target', 'Sales Actual', 'Sales Balance', '% Sales',
             'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
         ]]
-
-        sales_report['% Sales'] = pd.to_numeric(sales_report['% Sales'], errors='coerce')
-        sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce')
+        sales_report['% Sales'] = pd.to_numeric(sales_report['% Sales'], errors='coerce').fillna(0)
+        sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce').fillna(0)
         sales_report = add_totals_row(sales_report)
 
-        # Sub-Company Reports
+        # Sub-Company Reports (focus on Kimberly Clark and Dabur)
         sub_company_reports = {}
-        for sub_company, config in company_config['sub_companies'].items():
+        for sub_company in ['Kimberly Clark', 'Dabur']:
+            config = company_config['sub_companies'][sub_company]
             sub_company_brands = config['brands']
             sub_company_targets = config['fsr_targets']
             sub_company_eco_targets = config.get('eco_targets', {})
 
             sub_company_df = df[df['Brand'].isin([b.upper() for b in sub_company_brands])]
+            logger.debug(f"{sub_company} brands: {sub_company_brands}")
+            logger.debug(f"{sub_company} filtered rows: {len(sub_company_df)}")
+            if not sub_company_df.empty:
+                logger.debug(f"{sub_company} sample data: {sub_company_df[['FSR', sales_column, 'Customer', 'Brand']].head().to_dict()}")
+
             if not sub_company_df.empty:
                 sub_company_report = sub_company_df.groupby('FSR', as_index=False).agg({
-                    sales_column: 'sum',  # Use the same sales_column here for consistency
+                    sales_column: 'sum',
                     'Customer': pd.Series.nunique
                 })
                 sub_company_report.rename(columns={sales_column: 'Actual Sales', 'Customer': 'ECO Actual'}, inplace=True)
-                sub_company_report['Sales Target'] = sub_company_report['FSR'].map(sub_company_targets).fillna(0)
-                sub_company_report['ECO Target'] = sub_company_report['FSR'].map(sub_company_eco_targets).fillna(0)
+                logger.debug(f"{sub_company} aggregated data: {sub_company_report.to_dict()}")
+
+                # Sort FSRs to match the order in sub_company_targets
+                fsr_order = list(sub_company_targets.keys())
+                sub_company_report['FSR'] = pd.Categorical(sub_company_report['FSR'], categories=fsr_order, ordered=True)
+                sub_company_report = sub_company_report.sort_values('FSR').reset_index(drop=True)
+
+                # Map sales targets
+                sub_company_report['Sales Target'] = sub_company_report['FSR'].map(sub_company_targets)
+                logger.debug(f"{sub_company} sales targets from config: {sub_company_targets}")
+                logger.debug(f"{sub_company} mapped sales targets: {sub_company_report[['FSR', 'Sales Target']].to_dict()}")
+
+                # Check for unmapped FSRs
+                if sub_company_report['Sales Target'].isnull().any():
+                    logger.warning(f"{sub_company} has unmapped FSRs: {sub_company_report[sub_company_report['Sales Target'].isnull()]['FSR'].tolist()}")
+                sub_company_report['Sales Target'] = pd.to_numeric(sub_company_report['Sales Target'], errors='coerce').fillna(0)
+
+                sub_company_report['ECO Target'] = pd.to_numeric(
+                    sub_company_report['FSR'].map(sub_company_eco_targets), errors='coerce'
+                ).fillna(0)
                 sub_company_report['Unit'] = sub_company_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
+
+                logger.debug(f"{sub_company} raw values: {sub_company_report[['FSR', 'Actual Sales', 'Sales Target']].to_dict()}")
+
+                # Calculate % Sales
                 sub_company_report['Sales Balance'] = sub_company_report['Actual Sales'] - sub_company_report['Sales Target']
                 sub_company_report['% Sales'] = sub_company_report.apply(
-                    lambda row: (row['Actual Sales'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+                    lambda row: round((row['Actual Sales'] / row['Sales Target']) * 100, 2) if row['Sales Target'] != 0 else 0, axis=1
                 )
                 sub_company_report['ECO Balance'] = sub_company_report['ECO Actual'] - sub_company_report['ECO Target']
                 sub_company_report['% ECO'] = sub_company_report.apply(
-                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                    lambda row: round((row['ECO Actual'] / row['ECO Target']) * 100, 2) if row['ECO Target'] != 0 else 0, axis=1
                 )
+
+                logger.debug(f"{sub_company} calculated percentages: {sub_company_report[['FSR', '% Sales', '% ECO']].to_dict()}")
+
                 sub_company_report = sub_company_report[[
                     'FSR', 'Unit', 'Sales Target', 'Actual Sales', 'Sales Balance', '% Sales',
                     'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
                 ]]
-                sub_company_report['% Sales'] = pd.to_numeric(sub_company_report['% Sales'], errors='coerce')
-                sub_company_report['% ECO'] = pd.to_numeric(sub_company_report['% ECO'], errors='coerce')
+                sub_company_report['% Sales'] = pd.to_numeric(sub_company_report['% Sales'], errors='coerce').fillna(0)
+                sub_company_report['% ECO'] = pd.to_numeric(sub_company_report['% ECO'], errors='coerce').fillna(0)
                 sub_company_report = add_totals_row(sub_company_report)
                 sub_company_reports[sub_company] = sub_company_report
             else:
                 sub_company_report = pd.DataFrame({'FSR': list(sub_company_targets.keys())})
                 sub_company_report['Actual Sales'] = 0
                 sub_company_report['ECO Actual'] = 0
-                sub_company_report['Sales Target'] = sub_company_report['FSR'].map(sub_company_targets).fillna(0)
-                sub_company_report['ECO Target'] = sub_company_report['FSR'].map(sub_company_eco_targets).fillna(0)
+                sub_company_report['Sales Target'] = pd.to_numeric(
+                    sub_company_report['FSR'].map(sub_company_targets), errors='coerce'
+                ).fillna(0)
+                sub_company_report['ECO Target'] = pd.to_numeric(
+                    sub_company_report['FSR'].map(sub_company_eco_targets), errors='coerce'
+                ).fillna(0)
                 sub_company_report['Unit'] = sub_company_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
                 sub_company_report['Sales Balance'] = sub_company_report['Actual Sales'] - sub_company_report['Sales Target']
                 sub_company_report['% Sales'] = sub_company_report.apply(
-                    lambda row: (row['Actual Sales'] / row['Sales Target']) * 100 if row['Sales Target'] != 0 else 0, axis=1
+                    lambda row: round((row['Actual Sales'] / row['Sales Target']) * 100, 2) if row['Sales Target'] != 0 else 0, axis=1
                 )
                 sub_company_report['ECO Balance'] = sub_company_report['ECO Actual'] - sub_company_report['ECO Target']
                 sub_company_report['% ECO'] = sub_company_report.apply(
-                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                    lambda row: round((row['ECO Actual'] / row['ECO Target']) * 100, 2) if row['ECO Target'] != 0 else 0, axis=1
                 )
                 sub_company_report = sub_company_report[[
                     'FSR', 'Unit', 'Sales Target', 'Actual Sales', 'Sales Balance', '% Sales',
                     'ECO Target', 'ECO Actual', 'ECO Balance', '% ECO'
                 ]]
-                sub_company_report['% Sales'] = pd.to_numeric(sub_company_report['% Sales'], errors='coerce')
-                sub_company_report['% ECO'] = pd.to_numeric(sub_company_report['% ECO'], errors='coerce')
+                sub_company_report['% Sales'] = pd.to_numeric(sub_company_report['% Sales'], errors='coerce').fillna(0)
+                sub_company_report['% ECO'] = pd.to_numeric(sub_company_report['% ECO'], errors='coerce').fillna(0)
                 sub_company_report = add_totals_row(sub_company_report)
                 sub_company_reports[sub_company] = sub_company_report
 
-        # ECO Reports for Brands (unchanged, as they don't involve sales computation)
+        # ECO Reports for Brands (unchanged)
         eco_reports = {}
         for sub_company, config in company_config['sub_companies'].items():
             brand_targets = config.get('brand_targets', {})
@@ -741,9 +789,9 @@ def process_jumra(file_path, company, df):
                 eco_report['ECO Target'] = eco_report['FSR'].map(targets).fillna(0)
                 eco_report['ECO Balance'] = eco_report['ECO Actual'] - eco_report['ECO Target']
                 eco_report['% ECO'] = eco_report.apply(
-                    lambda row: (row['ECO Actual'] / row['ECO Target']) * 100 if row['ECO Target'] != 0 else 0, axis=1
+                    lambda row: round((row['ECO Actual'] / row['ECO Target']) * 100, 2) if row['ECO Target'] != 0 else 0, axis=1
                 )
-                eco_report['% ECO'] = pd.to_numeric(eco_report['% ECO'], errors='coerce')
+                eco_report['% ECO'] = pd.to_numeric(eco_report['% ECO'], errors='coerce').fillna(0)
                 eco_report = add_totals_row(eco_report)
                 eco_reports[brand] = eco_report
 
