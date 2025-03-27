@@ -635,11 +635,16 @@ def process_jumra(file_path, company, df):
         company_config = COMPANIES[company]
 
         # General Sales Report
+        # Use 'Total' for Jumra Eldoret, 'Amount' for others
+        sales_column = 'Total' if company == 'Jumra Eldoret' else 'Amount'
+        if sales_column not in df.columns:
+            raise ValueError(f"Expected column '{sales_column}' not found in the data for {company}")
+
         sales_report = df.groupby('FSR', as_index=False).agg({
-            'Amount': 'sum',
+            sales_column: 'sum',  # Use the dynamically selected column
             'Customer': pd.Series.nunique
         })
-        sales_report.rename(columns={'Amount': 'Sales Actual', 'Customer': 'ECO Actual'}, inplace=True)
+        sales_report.rename(columns={sales_column: 'Sales Actual', 'Customer': 'ECO Actual'}, inplace=True)
 
         sales_report['Sales Target'] = sales_report['FSR'].map(company_config['fsr_sales_targets']).fillna(0)
         sales_report['Unit'] = sales_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
@@ -673,10 +678,10 @@ def process_jumra(file_path, company, df):
             sub_company_df = df[df['Brand'].isin([b.upper() for b in sub_company_brands])]
             if not sub_company_df.empty:
                 sub_company_report = sub_company_df.groupby('FSR', as_index=False).agg({
-                    'Amount': 'sum',
+                    sales_column: 'sum',  # Use the same sales_column here for consistency
                     'Customer': pd.Series.nunique
                 })
-                sub_company_report.rename(columns={'Amount': 'Actual Sales', 'Customer': 'ECO Actual'}, inplace=True)
+                sub_company_report.rename(columns={sales_column: 'Actual Sales', 'Customer': 'ECO Actual'}, inplace=True)
                 sub_company_report['Sales Target'] = sub_company_report['FSR'].map(sub_company_targets).fillna(0)
                 sub_company_report['ECO Target'] = sub_company_report['FSR'].map(sub_company_eco_targets).fillna(0)
                 sub_company_report['Unit'] = sub_company_report['FSR'].map(company_config['unit_targets']).fillna('Unknown')
@@ -720,7 +725,7 @@ def process_jumra(file_path, company, df):
                 sub_company_report = add_totals_row(sub_company_report)
                 sub_company_reports[sub_company] = sub_company_report
 
-        # ECO Reports for Brands
+        # ECO Reports for Brands (unchanged, as they don't involve sales computation)
         eco_reports = {}
         for sub_company, config in company_config['sub_companies'].items():
             brand_targets = config.get('brand_targets', {})
