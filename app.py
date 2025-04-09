@@ -83,12 +83,12 @@ COMPANIES = {
     },
     'Canon Eldoret': {
         'fsr_sales_targets': {
-            'ANGELA AKIRAPA (Till 4545130)': 1740000,
-            'BEATRICE INGABIRE(Till 4545130)': 2784000,
-            'FANCY CHEPNGENO ': 928000,
-            'IRENE MUNYOKA': 812000,
-            'EZEKIEL NJOROGE': 1044000,
-            'Walkin  Sales': 3132000.
+            'ANGELA AKIRAPA (Till 4545130)': 2400000,
+            'BEATRICE INGABIRE(Till 4545130)': 700000,
+            'FANCY CHEPNGENO ': 1500000,
+            'IRENE MUNYOKA': 800000,
+            'EZEKIEL NJOROGE': 900000,
+            'Walkin  Sales': 2700000.
         },
         'unit_targets': {
             'ANGELA AKIRAPA (Till 4545130)': 'Retail',
@@ -549,13 +549,13 @@ def process_canon(file_path, company, df):
         company_config = COMPANIES[company]
 
         # General Sales Report
-        # Use 'Total' for Canon Eldoret, 'Amount' for others
-        sales_column = 'Total' if company == 'Canon Eldoret' else 'Amount'
+        # Use 'Amount' for all Canon companies, including Canon Eldoret
+        sales_column = 'Amount'
         if sales_column not in df.columns:
             raise ValueError(f"Expected column '{sales_column}' not found in the data for {company}")
 
         sales_report = df.groupby('FSR', as_index=False).agg({
-            sales_column: 'sum',  # Use the dynamically selected column
+            sales_column: 'sum',  # Use 'Amount' consistently
             'Customer': pd.Series.nunique
         })
         sales_report.rename(columns={sales_column: 'Sales Actual', 'Customer': 'ECO Actual'}, inplace=True)
@@ -581,7 +581,8 @@ def process_canon(file_path, company, df):
         sales_report['% ECO'] = pd.to_numeric(sales_report['% ECO'], errors='coerce')
         sales_report = add_totals_row(sales_report)
 
-        # Brand ECO Reports (unchanged, as they don't involve sales computation)
+        # Rest of the function remains unchanged
+        # Brand ECO Reports
         brand_reports = {}
         brand_targets = company_config.get('brand_targets', {})
         sku_list = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
@@ -604,7 +605,7 @@ def process_canon(file_path, company, df):
                 eco_report = add_totals_row(eco_report)
                 brand_reports[brand] = eco_report
 
-        # SKU ECO Reports (unchanged, as they don't involve sales computation)
+        # SKU ECO Reports
         sku_eco_reports = {}
         specific_skus = ['FGWHHMG0N01', 'FGWHHMG0N02', 'FGWHTRMG0003']
         for sku in specific_skus:
